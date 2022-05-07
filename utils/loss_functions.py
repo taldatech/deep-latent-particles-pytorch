@@ -1,9 +1,13 @@
+"""
+Loss functions implementations used in the optimization of DLP.
+"""
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import models
 
 
+# functions
 def batch_pairwise_kl(mu_x, logvar_x, mu_y, logvar_y, reverse_kl=False):
     """
     Calculate batch-wise KL-divergence
@@ -27,40 +31,6 @@ def batch_pairwise_kl(mu_x, logvar_x, mu_y, logvar_y, reverse_kl=False):
     p_kl = -0.5 * (1 + logvar_aa - logvar_bb - logvar_aa.exp() / logvar_bb.exp()
                    - ((mu_aa - mu_bb) ** 2) / logvar_bb.exp()).sum(-1)  # [batch_size, n_x, n_y]
     return p_kl
-
-
-class ChamferLossKL(nn.Module):
-    def __init__(self, use_reverse_kl=False):
-        super(ChamferLossKL, self).__init__()
-        self.use_reverse_kl = use_reverse_kl
-
-    def forward(self, mu_preds, logvar_preds, mu_gts, logvar_gts):
-        p_kl = batch_pairwise_kl(mu_preds, logvar_preds, mu_gts, logvar_gts, reverse_kl=False)
-        if self.use_reverse_kl:
-            p_rkl = batch_pairwise_kl(mu_preds, logvar_preds, mu_gts, logvar_gts, reverse_kl=True)
-            p_kl = 0.5 * (p_kl + p_rkl.transpose(2, 1))
-        mins, _ = torch.min(p_kl, 1)
-        loss_1 = torch.sum(mins, 1)
-        mins, _ = torch.min(p_kl, 2)
-        loss_2 = torch.sum(mins, 1)
-        return loss_1 + loss_2
-
-class ChamferLossIntraKL(nn.Module):
-    def __init__(self, use_reverse_kl=False):
-        super(ChamferLossIntraKL, self).__init__()
-        self.use_reverse_kl = use_reverse_kl
-
-    def forward(self, mu_preds, logvar_preds, mu_gts, logvar_gts):
-        p_kl = batch_pairwise_kl(mu_preds, logvar_preds, mu_gts, logvar_gts, reverse_kl=False)
-        if self.use_reverse_kl:
-            p_rkl = batch_pairwise_kl(mu_preds, logvar_preds, mu_gts, logvar_gts, reverse_kl=True)
-            p_kl = 0.5 * (p_kl + p_rkl.transpose(2, 1))
-        p_kl = p_kl + (p_kl.max().detach() + 1e-4) * torch.eye(p_kl.shape[-1], device=p_kl.device)
-        mins, _ = torch.min(p_kl, 1)
-        loss_1 = torch.sum(mins, 1)
-        mins, _ = torch.min(p_kl, 2)
-        loss_2 = torch.sum(mins, 1)
-        return loss_1 + loss_2
 
 
 def calc_reconstruction_loss(x, recon_x, loss_type='mse', reduction='sum'):
@@ -115,6 +85,27 @@ def calc_kl(logvar, mu, mu_o=0.0, logvar_o=0.0, reduce='sum'):
     return kl
 
 
+# classes
+class ChamferLossKL(nn.Module):
+    """
+    Calculates the KL-divergence between two sets of (R.V.) particle coordinates.
+    """
+    def __init__(self, use_reverse_kl=False):
+        super(ChamferLossKL, self).__init__()
+        self.use_reverse_kl = use_reverse_kl
+
+    def forward(self, mu_preds, logvar_preds, mu_gts, logvar_gts):
+        p_kl = batch_pairwise_kl(mu_preds, logvar_preds, mu_gts, logvar_gts, reverse_kl=False)
+        if self.use_reverse_kl:
+            p_rkl = batch_pairwise_kl(mu_preds, logvar_preds, mu_gts, logvar_gts, reverse_kl=True)
+            p_kl = 0.5 * (p_kl + p_rkl.transpose(2, 1))
+        mins, _ = torch.min(p_kl, 1)
+        loss_1 = torch.sum(mins, 1)
+        mins, _ = torch.min(p_kl, 2)
+        loss_2 = torch.sum(mins, 1)
+        return loss_1 + loss_2
+
+
 class NetVGGFeatures(nn.Module):
 
     def __init__(self, layer_ids):
@@ -143,20 +134,14 @@ class VGGDistance(nn.Module):
         self.layer_ids = layer_ids
         self.accumulate_mode = accumulate_mode
         self.device = device
-        # self.x_dims = self.get_dimensions()
 
     def forward(self, I1, I2, reduction='sum', only_image=False):
         b_sz = I1.size(0)
         num_ch = I1.size(1)
-        # scaling_factor = sum(self.x_dims)
-        # scaling_factor = self.x_dims[0]
 
         if self.accumulate_mode == 'sum':
-            # loss = torch.abs(I1 - I2).view(b_sz, -1).mean(1) * scaling_factor
-            # loss = torch.abs(I1 - I2).view(b_sz, -1).sum(1)
             loss = ((I1 - I2) ** 2).view(b_sz, -1).sum(1)
         else:
-            # loss = torch.abs(I1 - I2).view(b_sz, -1).mean(1)
             loss = ((I1 - I2) ** 2).view(b_sz, -1).mean(1)
 
         if num_ch == 1:
@@ -167,18 +152,12 @@ class VGGDistance(nn.Module):
 
         if not only_image:
             for i in range(len(self.layer_ids)):
-                # layer_loss = torch.abs(f1[i] - f2[i]).view(b_sz, -1).mean(1)
                 if self.accumulate_mode == 'sum':
-                    # layer_loss = torch.abs(f1[i] - f2[i]).view(b_sz, -1).mean(1) * scaling_factor
-                    # layer_loss = torch.abs(f1[i] - f2[i]).view(b_sz, -1).mean(1)
                     layer_loss = ((f1[i] - f2[i]) ** 2).view(b_sz, -1).sum(1)
                 else:
-                    # layer_loss = torch.abs(f1[i] - f2[i]).view(b_sz, -1).mean(1)
                     layer_loss = ((f1[i] - f2[i]) ** 2).view(b_sz, -1).mean(1)
                 loss = loss + layer_loss
 
-        # if num_ch == 1:
-        #     loss = loss / 3
         if reduction == 'mean':
             return loss.mean()
         elif reduction == 'sum':

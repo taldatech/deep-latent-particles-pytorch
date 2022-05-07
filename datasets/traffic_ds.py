@@ -1,3 +1,7 @@
+"""
+functions and classes to process the Traffic dataset
+"""
+
 import os
 import numpy as np
 import cv2
@@ -8,7 +12,7 @@ import torchvision.utils as vutils
 import matplotlib.pyplot as plt
 from PIL import Image
 # from tqdm.auto import tqdm
-import tps
+import utils.tps as tps
 
 
 def list_images_in_dir(path):

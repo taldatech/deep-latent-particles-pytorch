@@ -4,7 +4,7 @@ Evaluate supervised regression on CelebA-HQ 128x128
 # imports
 import numpy as np
 import torch
-from celeba_dataset import evaluate_lin_reg_on_mafl_topk
+from datasets.celeba_dataset import evaluate_lin_reg_on_mafl_topk
 from models import KeyPointVAE
 
 if __name__ == '__main__':

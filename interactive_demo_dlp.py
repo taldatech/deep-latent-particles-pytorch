@@ -1,21 +1,18 @@
+"""
+Interactive demo to observe and explore the learned particles.
+"""
 import torch
 from PIL import Image
 import torchvision.transforms as transforms
 import torchvision.transforms.functional as TF
-from torch.utils.data import DataLoader
 
 from models import KeyPointVAE
-# from models import KeyPointVAEB as KeyPointVAE
-from util_func import reparameterize, get_kp_mask_from_gmap
-from playground_dataset import PlaygroundTrajectoryDataset
-from mario_ds import MarioDataset
+from utils.util_func import reparameterize
 
 import matplotlib
-import matplotlib.animation as animation
 from matplotlib.widgets import Slider, Button
 import matplotlib as mpl
 from matplotlib import pyplot as plt
-import scipy.interpolate as inter
 import numpy as np
 
 matplotlib.use('Qt5Agg')
@@ -26,9 +23,7 @@ def update_from_slider(val):
         yvals[i] = sliders_y[i].val
         # xvals[i] = sliders_x[i].val
         if learned_feature_dim > 0:
-            # print(f'{i}: {feature_1_vals[i]}')
             feature_1_vals[i] = sliders_features[i].val
-            # print(f'{i}: {feature_1_vals[i]}')
     update(val)
 
 
@@ -41,8 +36,6 @@ def update(val):
         global feature_1_vals
     # update curve
     for i in np.arange(N):
-        # yvals[i] = sliders_y[i].val
-        # xvals[i] = sliders_x[i].val
         if learned_feature_dim > 0:
             # print(f'{i}: {feature_1_vals[i]}')
             feature_1_vals[i] = sliders_features[i].val
@@ -55,7 +48,6 @@ def update(val):
     print(f'delta_mu: {delta_mu}')
     if learned_feature_dim > 0:
         new_features = torch.from_numpy(feature_1_vals[None, :, None]).to(device)
-        # new_features = torch.cat([new_features, mu_features[:, :, 1:]], dim=-1)
         new_features = torch.cat([mu_features[:, :, :-1], new_features], dim=-1)
     else:
         new_features = None
@@ -66,8 +58,6 @@ def update(val):
 
     image_rec_new = rec_new[0].permute(1, 2, 0).data.cpu().numpy()
     m.set_data(image_rec_new)
-    # spline = inter.InterpolatedUnivariateSpline(x, yvals)
-    # m.set_ydata(spline(X))
     # redraw canvas while idle
     fig.canvas.draw_idle()
 
@@ -79,21 +69,18 @@ def reset(event):
     if learned_feature_dim > 0:
         global feature_1_vals
     # reset the values
-    # yvals = func(x)
     xvals = mu[0, :, 1].data.cpu().numpy() * (image_size - 1)
     yvals = mu[0, :, 0].data.cpu().numpy() * (image_size - 1)
     if learned_feature_dim > 0:
+        # a slider for the last feature dimension
         # feature_1_vals = mu_features[0, :, 0].data.cpu().numpy()
         feature_1_vals = mu_features[0, :, -1].data.cpu().numpy()
     for i in np.arange(N):
         sliders_y[i].reset()
-        # sliders_x[i].reset()
         if learned_feature_dim > 0:
             sliders_features[i].reset()
-    # spline = inter.InterpolatedUnivariateSpline(x, yvals)
     l.set_offsets(np.c_[xvals, yvals])
     m.set_data(image_rec)
-    # m.set_ydata(spline(X))
     # redraw canvas while idle
     fig.canvas.draw_idle()
 
@@ -105,7 +92,6 @@ def button_press_callback(event):
         return
     if event.button != 1:
         return
-    # print(pind)
     pind = get_ind_under_point(event)
 
 
@@ -119,14 +105,9 @@ def button_release_callback(event):
 
 def get_ind_under_point(event):
     'get the index of the vertex under point if within epsilon tolerance'
-
-    # display coords
-    # print('display x is: {0}; display y is: {1}'.format(event.x,event.y))
     t = ax1.transData.inverted()
     tinv = ax1.transData
     xy = t.transform([event.x, event.y])
-    # print('data x is: {0}; data y is: {1}'.format(xy[0],xy[1]))
-    # xr = np.reshape(x, (np.shape(x)[0], 1))
     xr = np.reshape(xvals, (np.shape(xvals)[0], 1))
     yr = np.reshape(yvals, (np.shape(yvals)[0], 1))
     xy_vals = np.append(xr, yr, 1)
@@ -136,11 +117,8 @@ def get_ind_under_point(event):
     indseq, = np.nonzero(d == d.min())
     ind = indseq[0]
 
-    # print(d[ind])
     if d[ind] >= epsilon:
         ind = None
-
-    # print(ind)
     return ind
 
 
@@ -194,7 +172,7 @@ if __name__ == '__main__':
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     use_logsoftmax = False
     # pad_mode = 'zeros'
-    pad_mode = 'reflect'
+    pad_mode = 'replicate'
     sigma = 0.1  # default sigma for the gaussian maps
     dropout = 0.0
     n_kp = 1  # num kp per patch
@@ -334,40 +312,6 @@ if __name__ == '__main__':
         if crop != 0:
             data = data[:, crop:-crop, crop:-crop]
         data = data.unsqueeze(0).to(device)
-    elif ds == 'playground':
-        # path_to_data_pickle = './playground_ep_500_steps_20_ra_1_traj_waction_rotate_True_rectangle_ball_tri_s.pickle'
-        # path_to_data_pickle = '/mnt/data/tal/box2dplayground/playground_ep_500.pickle'
-        path_to_data_pickle = '/media/newhd/data/playground/playground_ep_500.pickle'
-        dataset = PlaygroundTrajectoryDataset(path_to_data_pickle, image_size=image_size, timestep_horizon=2,
-                                              with_actions=True, traj_length=20)
-        dataloader = DataLoader(dataset, shuffle=True, batch_size=1, num_workers=0, pin_memory=True,
-                                drop_last=True)
-        batch = next(iter(dataloader))
-        prev_obs, obs = batch[0][:, 0], batch[0][:, 1]
-        # prev_obs, obs = prev_obs.to(device), obs.to(device)
-        x = prev_obs.to(device)
-        # rand_ch = np.random.randint(low=0, high=3, size=1)[0]
-        # rand_val = 0.3 + 0.4 * np.random.rand(1)[0]
-        # x[:, rand_ch][x[:, rand_ch] == 0.0] = rand_val
-        x[:, 1][x[:, 1] == 0.0] = 0.4
-        x_prior = x
-        data = x
-    elif ds == 'mario':
-        root = '/media/newhd/data/mario/mario_img128np_fs1.npy'
-        mode = 'single'
-        dataset = MarioDataset(path_to_npy=root, image_size=image_size, mode=mode, train=True)
-        dataloader = DataLoader(dataset, shuffle=True, batch_size=1, num_workers=0, pin_memory=True,
-                                drop_last=True)
-        batch = next(iter(dataloader))
-        if mode == 'single':
-            x = batch
-            x_prior = x
-        else:
-            x = batch[0].to(device)
-            x_prior = batch[1].to
-        # prev_obs, obs = prev_obs.to(device), obs.to(device)
-        x = x.to(device)
-        data = x
     elif ds == 'traffic':
         # path_to_image = '../sample_images/101.png'  # traffic 1
         path_to_image = '../sample_images/29974.png'  # traffic 2
@@ -416,13 +360,6 @@ if __name__ == '__main__':
         rec, _, _ = model.decode_all(z, z_features, kp_heatmap, obj_on, deterministic=deterministic,
                                      order_weights=order_weights)
         rec = rec.clamp(0, 1)
-        # plt.imshow(rec[0].permute(1, 2, 0).data.cpu().numpy())
-        # plt.show()
-    # plot
-    # img_with_kp = plot_keypoints_on_image_batch(mu, data, radius=3, thickness=1, max_imgs=1)
-    # grid = vutils.make_grid(torch.cat([data[:1, -3:], img_with_kp[:1, -3:].to(device), rec[:1, -3:]]), nrow=8,
-    #                         pad_value=1)
-    # grid = grid.permute(1, 2, 0).data.cpu().numpy()
 
     # top-k
     with torch.no_grad():
@@ -453,8 +390,6 @@ if __name__ == '__main__':
     xvals_topk = topk_kp[0, :, 1].data.cpu().numpy() * (image_size - 1)
     yvals_topk = topk_kp[0, :, 0].data.cpu().numpy() * (image_size - 1)
 
-    # fig, axes = plt.subplots(1, 2, figsize=(15.0, 15.0), sharex=True)
-    # ax1, ax2 = axes
     fig = plt.figure(figsize=(10, 10))
     ax1 = fig.add_subplot(111)
     image = data[0].permute(1, 2, 0).data.cpu().numpy()
@@ -484,21 +419,11 @@ if __name__ == '__main__':
     pind = None  # active point
     epsilon = 10  # max pixel distance
 
-    # X = np.arange(0, xmax + 1, 0.1)
-
-    # ax1.plot(X, func(X), 'k--', label='original')
     ax1.scatter(xvals, yvals, label='original', s=70)
     l = ax1.scatter(xvals, yvals, color='red', marker='*', s=70)
-    # m, = ax1.plot(X, spline(X), 'r-', label='spline')
 
-    # ax1.set_yscale('linear')
-    # ax1.set_xlim(0, xmax)
-    # ax1.set_ylim(0, xmax)
     ax1.set_xlabel('x')
     ax1.set_ylabel('y')
-    # ax1.grid(True)
-    # ax1.yaxis.grid(True, which='minor', linestyle='--')
-    # ax1.legend(loc=2, prop={'size': 22})
 
     sliders_y = []
     sliders_x = []
@@ -510,37 +435,17 @@ if __name__ == '__main__':
         axamp = plt.axes([0.84, 0.85 - (i * 0.025), slider_width, 0.01])
         # Slider y
         s_y = Slider(axamp, 'p_y{0}'.format(i), 0, image_size, valinit=yvals[i])
-        # axamp = plt.axes([0.84, 0.85 - (i * 0.025), 0.06, 0.01])
-        # Slider x
-        # s_x = Slider(axamp, 'p_x{0}'.format(i), 0, image_size, valinit=xvals[i])
         sliders_y.append(s_y)
-        # sliders_x.append(s_x)
         if learned_feature_dim > 0:
             axamp_f = plt.axes([0.93, 0.85 - (i * 0.025), slider_width, 0.01])
             s_feat = Slider(axamp_f, f'f_1', -5, 5, valinit=feature_1_vals[i])
             sliders_features.append(s_feat)
 
-    # for i in np.arange(2 * N):
-    #     axamp = plt.axes([0.84, 0.85 - (i * 0.0125), 0.12, 0.01])
-    #     if i % 2 == 0:
-    #         # Slider y
-    #         s_y = Slider(axamp, 'p_y{0}'.format(i // 2), 0, image_size, valinit=yvals[i // 2])
-    #         sliders_y.append(s_y)
-    #         # axamp = plt.axes([0.84, 0.85 - (i * 0.025), 0.06, 0.01])
-    #     else:
-    #         # Slider x
-    #         # pass
-    #         s_x = Slider(axamp, 'p_x{0}'.format(i // 2), 0, image_size, valinit=xvals[i // 2])
-    #         sliders_x.append(s_x)
-
     for i in np.arange(N):
-        # sliders_y[i].on_changed(update)
         sliders_y[i].on_changed(update_from_slider)
-        # sliders_x[i].on_changed(update)
         if learned_feature_dim > 0:
             sliders_features[i].on_changed(update_from_slider)
 
-    # axres = plt.axes([0.84, 0.85 - ((2 * N) * 0.0125), 0.12, 0.01])
     axres = plt.axes([0.84, 0.85 - ((N) * 0.025), 0.12, 0.01])
     bres = Button(axres, 'Reset')
     bres.on_clicked(reset)

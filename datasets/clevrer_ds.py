@@ -1,8 +1,12 @@
+"""
+functions and classes to process the CLEVRER dataset
+"""
+
 import os
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
-import tps
+import utils.tps as tps
 
 import torch
 from PIL import Image

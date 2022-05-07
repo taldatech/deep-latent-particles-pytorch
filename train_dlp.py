@@ -1,3 +1,6 @@
+"""
+Main training function for single-GPU machines
+"""
 # imports
 import numpy as np
 import os
@@ -8,7 +11,7 @@ import cv2
 # torch
 import torch
 import torch.nn.functional as F
-from loss_functions import ChamferLossKL, calc_kl, calc_reconstruction_loss, VGGDistance, ChamferLossIntraKL
+from utils.loss_functions import ChamferLossKL, calc_kl, calc_reconstruction_loss, VGGDistance, ChamferLossIntraKL
 from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
@@ -18,16 +21,12 @@ import torch.optim as optim
 from models import KeyPointVAE
 # from models import KeyPointVAEB as KeyPointVAE
 # datasets
-from celeba_dataset import CelebAPrunedAligned_MAFLVal, evaluate_lin_reg_on_mafl
-from replay_buffer_dataset import ReplayBufferDataset
-from traffic_ds import TrafficDataset
-from playground_dataset import PlaygroundTrajectoryDataset
-from bair_ds import BAIRDataset
-from clevrer_ds import CLEVRERDataset
-from mario_ds import MarioDataset
+from datasets.celeba_dataset import CelebAPrunedAligned_MAFLVal, evaluate_lin_reg_on_mafl
+from datasets.traffic_ds import TrafficDataset
+from datasets.clevrer_ds import CLEVRERDataset
 # util functions
-from util_func import plot_keypoints_on_image_batch, create_masks_fast, prepare_logdir, save_config, log_line
-from eval_model import evaluate_validation_elbo
+from utils.util_func import plot_keypoints_on_image_batch, create_masks_fast, prepare_logdir, save_config, log_line
+from eval.eval_model import evaluate_validation_elbo
 
 matplotlib.use("Agg")
 torch.backends.cudnn.benchmark = False
@@ -43,19 +42,7 @@ def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.de
                         use_object_dec=False, warmup_epoch=5, iou_thresh=0.15, anchor_s=0.25, learn_order=False,
                         kl_balance=0.1):
     # load data
-    if ds == "playground":
-        image_size = 64
-        enc_channels = (16, 16, 32)
-        prior_channels = enc_channels
-        # prior_channels = (32, 64)
-        ch = 3
-        # path_to_data_pickle = '../playground_ep_500_steps_20_ra_1_traj_waction_rotate_True_rectangle_ball_tri_s.pickle'
-        # path_to_data_pickle = '/mnt/data/tal/box2dplayground/playground_ep_500.pickle'
-        path_to_data_pickle = '/media/newhd/data/playground/playground_ep_500.pickle'
-        dataset = PlaygroundTrajectoryDataset(path_to_data_pickle, image_size=image_size, timestep_horizon=2,
-                                              with_actions=True, traj_length=20)
-        milestones = (50, 100, 200)
-    elif ds == "celeba":
+    if ds == "celeba":
         image_size = 128
         imwidth = 160
         crop = 16
@@ -91,33 +78,6 @@ def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.de
         mode = 'single'
         dataset = TrafficDataset(path_to_npy=root, image_size=image_size, mode=mode, train=True)
         milestones = (50, 100, 200)
-    elif ds == "mario":
-        image_size = 128
-        ch = 3
-        # enc_channels = [64, 128, 256, 512]
-        enc_channels = [32, 64, 128, 256]
-        # prior_channels = (16, 16, 32)
-        prior_channels = (16, 32, 64)
-        root = '/media/newhd/data/mario/mario_img128np_fs1.npy'
-        mode = 'single' if not use_tps else 'tps'
-        dataset = MarioDataset(path_to_npy=root, image_size=image_size, mode=mode, train=True)
-        milestones = (100, 500, 1000)
-    elif ds == 'replay_buffer':
-        image_size = 64
-        ch = 3
-        enc_channels = (32, 64, 128)
-        prior_channels = (16, 32, 64)
-        root = '../../../SAC-AE/pytorch_sac_ae/data/cheetah_run'
-        dataset = ReplayBufferDataset(path_to_dir=root, image_size=image_size, obs_shape=(84, 84, 3))
-        milestones = (50, 100, 200)
-    elif ds == 'bair':
-        image_size = 64
-        ch = 3
-        enc_channels = (32, 64, 128)
-        prior_channels = (16, 32, 64)
-        root = '/mnt/data/tal/bair/processed'
-        dataset = BAIRDataset(root=root, train=True, horizon=2, image_size=image_size)
-        milestones = (50, 100, 200)
     elif ds == 'clevrer':
         # image_size = 128
         image_size = 64
@@ -135,7 +95,6 @@ def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.de
     else:
         raise NotImplementedError
 
-    # TODO: add tensorboard
     hparams = {'ds': ds, 'batch_size': batch_size, 'lr': lr, 'kp_activation': kp_activation, 'pad_mode': pad_mode,
                'num_epochs': num_epochs, 'n_kp': n_kp, 'recon_loss_type': recon_loss_type,
                'use_logsoftmax': use_logsoftmax, 'sigma': sigma, 'beta_kl': beta_kl, 'beta_rec': beta_rec,
@@ -665,7 +624,7 @@ if __name__ == "__main__":
 
     use_logsoftmax = False
     # pad_mode = 'zeros'
-    pad_mode = 'reflect'
+    pad_mode = 'replicate'
     sigma = 0.1  # default sigma for the gaussian maps
     dropout = 0.0
 

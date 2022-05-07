@@ -1,4 +1,5 @@
 """
+CelebA dataset processing
 classes and functions from:
 https://github.com/jamt9000/DVE
 """
@@ -7,7 +8,7 @@ import numpy as np
 import pandas as pd
 import os
 from PIL import Image
-import tps as tps
+import utils.tps as tps
 import glob
 import torch
 from os.path import join as pjoin
@@ -20,7 +21,6 @@ from torch.utils.data.dataset import Dataset
 from torch.utils.data import DataLoader
 from torchvision.utils import save_image
 from sklearn.linear_model import Ridge
-# from data_loader.augmentations import get_composed_augmentations
 import cv2
 
 from io import BytesIO
@@ -93,8 +93,6 @@ def evaluate_lin_reg_on_mafl(model, root="/mnt/data/tal/celeba", bias=False, use
         if topk > 0:
             mu_kp, logvar_kp, mu_features, logvar_features = get_top_k_kp(mu_kp, logvar_kp, mu_features,
                                                                           logvar_features, k=topk)
-        # x_train_mu.append(mu_kp * (img_size - 1))
-        # x_train_mu.append(mu_kp * img_size)
         x_train_mu.append(mu_kp)
         x_train_logvar.append(logvar_kp)
         if use_features and mu_features is not None:
@@ -115,7 +113,6 @@ def evaluate_lin_reg_on_mafl(model, root="/mnt/data/tal/celeba", bias=False, use
     x_train = x_train.view(x_train.shape[0], -1).data.cpu().numpy()
     y_train = torch.cat(y_train, dim=0)
     y_train = y_train.data.cpu().numpy()
-    # print(f'train shape: x: {x_train.shape}, y: {y_train.shape}')
 
     # extract keypoints from model - test data
     x_test_mu = []
@@ -128,7 +125,6 @@ def evaluate_lin_reg_on_mafl(model, root="/mnt/data/tal/celeba", bias=False, use
         gt_kp_t = gt_kp.clone()
         gt_kp_t[:, :, 0] = gt_kp[:, :, 1]  # change x-y
         gt_kp_t[:, :, 1] = gt_kp[:, :, 0]
-        # gt_kp_t = gt_kp_t.view(gt_kp_t.shape[0], -1)
         y_test.append(gt_kp_t)
         with torch.no_grad():
             if normalize is not None:
@@ -139,8 +135,6 @@ def evaluate_lin_reg_on_mafl(model, root="/mnt/data/tal/celeba", bias=False, use
         if topk > 0:
             mu_kp, logvar_kp, mu_features, logvar_features = get_top_k_kp(mu_kp, logvar_kp, mu_features,
                                                                           logvar_features, k=topk)
-        # x_test_mu.append(mu_kp * (img_size - 1))
-        # x_test_mu.append(mu_kp * img_size)
         x_test_mu.append(mu_kp)
         x_test_logvar.append(logvar_kp)
         if use_features and mu_features is not None:
@@ -161,7 +155,6 @@ def evaluate_lin_reg_on_mafl(model, root="/mnt/data/tal/celeba", bias=False, use
     x_test = x_test.view(x_test.shape[0], -1).data.cpu().numpy()
     y_test = torch.cat(y_test, dim=0)
     y_test = y_test.data.cpu().numpy()
-    # print(f'test shape: x: {x_test.shape}, y: {y_test.shape}')
 
     # regression
     regr = Ridge(alpha=0.0, fit_intercept=bias)
@@ -211,22 +204,6 @@ def evaluate_lin_reg_on_mafl(model, root="/mnt/data/tal/celeba", bias=False, use
                               img_with_pred_kp[:max_imgs, -3:].to(device)], dim=0).data.cpu(), img_name, nrow=8,
                    pad_value=1)
 
-    # print(f'dataset size: {len(dataset)}')
-    # for ii in range(2):
-    #     print(
-    #         f'data shape:{dataset[ii]["data"].shape}, max: {dataset[ii]["data"].max()}, min: {dataset[ii]["data"].min()}')
-    #     save_image(dataset[ii]["data"], f'./figures/data_sample_celeb_{ii}.jpg')
-    #     if dataset[ii]["meta"]:
-    #         # print(f'data shape:{dataset[ii]["meta"].shape}')
-    #         print(f'data shape:{dataset[ii]["meta"]}')
-    #         kp = dataset[ii]["meta"]['keypts_normalized'].unsqueeze(0)
-    #         kp_t = kp.clone()
-    #         kp_t[:, :, 0] = kp[:, :, 1]
-    #         kp_t[:, :, 1] = kp[:, :, 0]
-    #         img_with_kp = plot_keypoints_on_image_batch(kp_t, dataset[ii]["data"].unsqueeze(0), radius=3, thickness=1,
-    #                                                     max_imgs=1)
-    #         save_image(img_with_kp, f'./figures/data_sample_celeb_{ii}_kp.jpg')
-
     return mean_error_train, mean_error
 
 
@@ -250,12 +227,6 @@ def lin_reg(x_train, y_train, x_test, y_test, bias=False):
     distances = np.sqrt(np.sum((landmarks_gt - landmarks_regressed) ** 2, axis=-1))
     mean_error = np.mean(distances / occular_distances[:, None])
 
-    # normalized train error with respect to intra-occular distance
-    # eyes_train = landmarks_gt_train[:, :2, :]
-    # occular_distances_train = np.sqrt(
-    #     np.sum((eyes_train[:, 0, :] - eyes_train[:, 1, :]) ** 2, axis=-1))
-    # distances_train = np.sqrt(np.sum((landmarks_gt_train - landmarks_regressed_train) ** 2, axis=-1))
-    # mean_error_train = np.mean(distances_train / occular_distances_train[:, None])
     return mean_error
 
 
@@ -294,8 +265,6 @@ def evaluate_lin_reg_on_mafl_topk(model, root="/mnt/data/tal/celeba", bias=False
             mu_kp, logvar_kp, kp_heatmap, mu_features, logvar_features, _, _ = model.encode_all(img.to(device),
                                                                                                 return_heatmap=True,
                                                                                                 deterministic=True)
-        # x_train_mu.append(mu_kp * (img_size - 1))
-        # x_train_mu.append(mu_kp * img_size)
         x_train_mu.append(mu_kp)
         x_train_logvar.append(logvar_kp)
 
@@ -366,8 +335,6 @@ def evaluate_lin_reg_on_mafl_topk(model, root="/mnt/data/tal/celeba", bias=False
             mu_kp, logvar_kp, kp_heatmap, mu_features, logvar_features, _, _ = model.encode_all(img.to(device),
                                                                                                 return_heatmap=True,
                                                                                                 deterministic=True)
-        # x_test_mu.append(mu_kp * (img_size - 1))
-        # x_test_mu.append(mu_kp * img_size)
         x_test_mu.append(mu_kp)
         x_test_logvar.append(logvar_kp)
         if mu_features is not None:
@@ -411,7 +378,6 @@ def evaluate_lin_reg_on_mafl_topk(model, root="/mnt/data/tal/celeba", bias=False
 
     y_test = torch.cat(y_test, dim=0)
     y_test = y_test.data.cpu().numpy()
-    # print(f'test shape: x: {x_test.shape}, y: {y_test.shape}')
 
     # regression
     # only mu
@@ -441,50 +407,11 @@ def evaluate_lin_reg_on_mafl_topk(model, root="/mnt/data/tal/celeba", bias=False
               'feat_confident_err': feat_confident_err, 'feat_uncertainty_err': feat_uncertainty_err}
 
 
-    # regr = Ridge(alpha=0.0, fit_intercept=bias)
-    # _ = regr.fit(x_train, y_train)
-    # y_predict = regr.predict(x_test)
-    # y_predict_train = regr.predict(x_train)
-    #
-    # landmarks_gt = y_test.astype(np.float32)
-    # landmarks_regressed = y_predict.reshape(landmarks_gt.shape)
-    #
-    # landmarks_gt_train = y_train.reshape(y_train.shape[0], landmarks_gt.shape[1], landmarks_gt.shape[2])
-    # landmarks_regressed_train = y_predict_train.reshape(landmarks_gt_train.shape)
-    #
-    # # normalized error with respect to intra-occular distance
-    # eyes = landmarks_gt[:, :2, :]
-    # occular_distances = np.sqrt(
-    #     np.sum((eyes[:, 0, :] - eyes[:, 1, :]) ** 2, axis=-1))
-    # distances = np.sqrt(np.sum((landmarks_gt - landmarks_regressed) ** 2, axis=-1))
-    # mean_error = np.mean(distances / occular_distances[:, None])
-    #
-    # # normalized train error with respect to intra-occular distance
-    # eyes_train = landmarks_gt_train[:, :2, :]
-    # occular_distances_train = np.sqrt(
-    #     np.sum((eyes_train[:, 0, :] - eyes_train[:, 1, :]) ** 2, axis=-1))
-    # distances_train = np.sqrt(np.sum((landmarks_gt_train - landmarks_regressed_train) ** 2, axis=-1))
-    # mean_error_train = np.mean(distances_train / occular_distances_train[:, None])
-    #
-    # # print(f'dataset size: {len(dataset)}')
-    # # for ii in range(2):
-    # #     print(
-    # #         f'data shape:{dataset[ii]["data"].shape}, max: {dataset[ii]["data"].max()}, min: {dataset[ii]["data"].min()}')
-    # #     save_image(dataset[ii]["data"], f'./figures/data_sample_celeb_{ii}.jpg')
-    # #     if dataset[ii]["meta"]:
-    # #         # print(f'data shape:{dataset[ii]["meta"].shape}')
-    # #         print(f'data shape:{dataset[ii]["meta"]}')
-    # #         kp = dataset[ii]["meta"]['keypts_normalized'].unsqueeze(0)
-    # #         kp_t = kp.clone()
-    # #         kp_t[:, :, 0] = kp[:, :, 1]
-    # #         kp_t[:, :, 1] = kp[:, :, 0]
-    # #         img_with_kp = plot_keypoints_on_image_batch(kp_t, dataset[ii]["data"].unsqueeze(0), radius=3, thickness=1,
-    # #                                                     max_imgs=1)
-    # #         save_image(img_with_kp, f'./figures/data_sample_celeb_{ii}_kp.jpg')
 
     return result
 
 
+# code duplicate from `utils` so it is self-contained.
 def color_map(num=100):
     colormap = ["FF355E",
                 "8ffe09",
@@ -534,11 +461,6 @@ def plot_keypoints_on_image(k, image_tensor, radius=1, thickness=1, kp_range=(0,
         cv2.circle(img, (co_ord[1], co_ord[0]), radius, c, thickness)
         # cv2.circle(img, (co_ord[0], co_ord[1]), radius, c, thickness)
         count += 1
-    #     print(f'{count} kp plotted')
-
-    # img = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
-    # img = np.transpose(img, (2, 0, 1))
-    # img = Image.fromarray(img)
 
     return img
 
@@ -548,7 +470,7 @@ def plot_keypoints_on_image_batch(kp_batch_tensor, img_batch_tensor, radius=1, t
     num_plot = min(max_imgs, img_batch_tensor.shape[0])
     img_with_kp = []
     for i in range(num_plot):
-        img_np = plot_keypoints_on_image(kp_batch_tensor[i], img_batch_tensor[i], radius=radius, thickness=1,
+        img_np = plot_keypoints_on_image(kp_batch_tensor[i], img_batch_tensor[i], radius=radius, thickness=thickness,
                                          kp_range=kp_range)
         img_tensor = torch.tensor(img_np).float() / 255.0
         img_with_kp.append(img_tensor.permute(2, 0, 1))

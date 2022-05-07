@@ -65,19 +65,20 @@ Daniel, Tal, and Aviv Tamar. "Soft-IntroVAE: Analyzing and Improving the Introsp
 
 * For your convenience, we provide an `environemnt.yml` file which installs the required packages in a `conda` environment name `torch`.
     * Use the terminal or an Anaconda Prompt and run the following command `conda env create -f environment.yml`.
-* For Style-SoftIntroVAE, more packages are required, and we provide them in the `style_soft_intro_vae` directory.
 
 
 |Library         | Version |
 |----------------------|----|
 |`Python`|  `3.6 (Anaconda)`|
 |`torch`|  >= `1.7.1`|
+|`torch_geometric`|  >= `1.7.1`|
 |`torchvision`|  >= `0.4`|
 |`matplotlib`|  >= `2.2.2`|
 |`numpy`|  >= `1.17`|
-|`opencv`|  >= `3.4.2`|
+|`py-opencv`|  >= `3.4.2`|
 |`tqdm`| >= `4.36.1`|
 |`scipy`| >= `1.3.1`|
+|`accelerate`| >= `0.3.0`|
 
 
 

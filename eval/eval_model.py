@@ -5,17 +5,14 @@ from tqdm import tqdm
 # torch
 import torch
 import torch.nn.functional as F
-from loss_functions import ChamferLossKL, calc_kl, calc_reconstruction_loss, VGGDistance, ChamferLoss
+from utils.loss_functions import ChamferLossKL, calc_kl, calc_reconstruction_loss, VGGDistance, ChamferLoss
 from torch.utils.data import Dataset, DataLoader
 import torchvision.utils as vutils
 # datasets
-from replay_buffer_dataset import ReplayBufferDataset
-from traffic_ds import TrafficDataset
-from bair_ds import BAIRDataset
-from clevrer_ds import CLEVRERDataset
-from playground_dataset import PlaygroundTrajectoryDataset
+from datasets.traffic_ds import TrafficDataset
+from datasets.clevrer_ds import CLEVRERDataset
 # util functions
-from util_func import plot_keypoints_on_image_batch, reparameterize, animate_trajectories
+from utils.util_func import plot_keypoints_on_image_batch, reparameterize, animate_trajectories
 
 
 def evaluate_validation_elbo(model, ds, epoch, batch_size=100, recon_loss_type="vgg", device=torch.device('cpu'),
@@ -26,26 +23,11 @@ def evaluate_validation_elbo(model, ds, epoch, batch_size=100, recon_loss_type="
     model.eval()
     kp_range = model.kp_range
     # load data
-    if ds == "playground":
-        image_size = 64
-        path_to_data_pickle = '../playground_ep_500_steps_20_ra_1_traj_waction_rotate_True_rectangle_ball_tri_s.pickle'
-        # path_to_data_pickle = '/mnt/data/tal/box2dplayground/playground_ep_500.pickle'
-        # path_to_data_pickle = '/media/newhd/data/playground/playground_ep_500.pickle'
-        dataset = PlaygroundTrajectoryDataset(path_to_data_pickle, image_size=image_size, timestep_horizon=2,
-                                              with_actions=True, traj_length=20)
-    elif ds == "traffic":
+    if ds == "traffic":
         image_size = 128
         root = '/mnt/data/tal/traffic_dataset/img128np_fs3.npy'
         mode = 'single'
         dataset = TrafficDataset(path_to_npy=root, image_size=image_size, mode=mode, train=False)
-    elif ds == 'replay_buffer':
-        image_size = 64
-        root = '../../../SAC-AE/pytorch_sac_ae/data/cheetah_run'
-        dataset = ReplayBufferDataset(path_to_dir=root, image_size=image_size, obs_shape=(84, 84, 3))
-    elif ds == 'bair':
-        image_size = 64
-        root = '/mnt/data/tal/bair/processed'
-        dataset = BAIRDataset(root=root, train=False, horizon=2, image_size=image_size)
     elif ds == 'clevrer':
         image_size = 128
         root = '/mnt/data/tal/clevrer/clevrer_img128np_fs3_valid.npy'
@@ -248,10 +230,6 @@ def evaluate_validation_vp_dyn(model, ds, epoch, batch_size=100, loss_type="vgg"
         # dataset should return previous timesteps (timstep_horizon) + current (1)
         dataset = TrafficDataset(path_to_npy=root, image_size=image_size, mode=mode, train=False,
                                  horizon=timestep_horizon + 1)
-    elif ds == 'bair':
-        image_size = 64
-        root = '/mnt/data/tal/bair/processed'
-        dataset = BAIRDataset(root=root, train=False, horizon=timestep_horizon + 1, image_size=image_size)
     elif ds == 'clevrer':
         image_size = 128
         root = '/mnt/data/tal/clevrer/clevrer_img128np_fs3_valid.npy'
@@ -354,10 +332,6 @@ def animate_trajectory_vp_dyn(model, ds, epoch, device=torch.device('cpu'), fig_
         # dataset should return previous timesteps (timstep_horizon) + current (1)
         dataset = TrafficDataset(path_to_npy=root, image_size=image_size, mode=mode, train=train,
                                  horizon=timestep_horizon + 1)
-    elif ds == 'bair':
-        image_size = 64
-        root = '/mnt/data/tal/bair/processed'
-        dataset = BAIRDataset(root=root, train=train, horizon=timestep_horizon + 1, image_size=image_size)
     elif ds == 'clevrer':
         image_size = 128
         root = '/mnt/data/tal/clevrer/clevrer_img128np_fs3_valid.npy'
