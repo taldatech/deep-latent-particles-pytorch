@@ -806,14 +806,28 @@ class ObjectEncoder(nn.Module):
         cropped_objects = centered_objects[:, :, :, w_start:w_end, h_start:h_end]
         return cropped_objects
 
-    def forward(self, x, kp):
+    def forward(self, x, kp, exclusive_patches=False):
         # x: [bs, ch, image_size, image_size]
         # kp: [bs, n_kp, 2] in [-1, 1]
+        # exclusive_objects: create cumulative masks to avoid overlapping objects, THIS WAS NOT USED IN THE PAPER
+        #                    this will (mostly) enforce one particle pre object and
+        #                    won't allow several layers per object
         batch_size, _, _, img_size = x.shape
         _, n_kp, _ = kp.shape
         # create masks from kp
         masks = create_masks_fast(kp.detach(), self.anchor_size, feature_dim=self.image_size)
         # [batch_size, n_kp, 1, feature_dim, feature_dim]
+        if exclusive_patches:
+            masks = masks.clamp(0, 1)  # STN can cause values to be outside [0, 1]
+            # create cumulative masks to avoid overlapping objects
+            curr_mask = masks[:, 0]
+            comp_masks = [curr_mask]
+            for i in range(1, masks.shape[1]):
+                available_space = 1.0 - curr_mask.detach()
+                curr_mask_tmp = torch.min(available_space, masks[:, i])
+                comp_masks.append(curr_mask_tmp)
+                curr_mask = curr_mask + curr_mask_tmp
+            masks = torch.stack(comp_masks, dim=1)
         # extract objects
         padded_objects = masks * x.unsqueeze(1)  # [batch_size, n_kp, ch, image_size, image_size]
         # center objects

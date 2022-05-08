@@ -449,7 +449,7 @@ class KeyPointVAE(nn.Module):
             curr_mask = a_obj[:, 0]
             comp_masks = [curr_mask]
             for i in range(1, a_obj.shape[1]):
-                available_space = 1.0 - curr_mask.detach()  # also works
+                available_space = 1.0 - curr_mask.detach()
                 curr_mask_tmp = torch.min(available_space, a_obj[:, i])
                 comp_masks.append(curr_mask_tmp)
                 curr_mask = curr_mask + curr_mask_tmp
