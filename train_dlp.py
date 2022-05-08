@@ -7,19 +7,15 @@ import os
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import matplotlib
-import cv2
 # torch
 import torch
 import torch.nn.functional as F
-from utils.loss_functions import ChamferLossKL, calc_kl, calc_reconstruction_loss, VGGDistance, ChamferLossIntraKL
-from torch.utils.data import Dataset, DataLoader
-import torchvision.transforms as transforms
+from utils.loss_functions import ChamferLossKL, calc_kl, calc_reconstruction_loss, VGGDistance
+from torch.utils.data import DataLoader
 import torchvision.utils as vutils
-import torch.nn as nn
 import torch.optim as optim
 # modules
 from models import KeyPointVAE
-# from models import KeyPointVAEB as KeyPointVAE
 # datasets
 from datasets.celeba_dataset import CelebAPrunedAligned_MAFLVal, evaluate_lin_reg_on_mafl
 from datasets.traffic_ds import TrafficDataset
@@ -35,26 +31,56 @@ torch.backends.cudnn.deterministic = True
 
 def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.device("cpu"), kp_activation="none",
                         pad_mode='zeros', num_epochs=250, load_model=False, n_kp=8, recon_loss_type="mse",
-                        use_logsoftmax=False, sigma=0.1, beta_kl=1.0, beta_rec=1.0, dropout=0.0, dec_bone="gauss",
-                        patch_size=16, topk=15, n_kp_enc=20, eval_epoch_freq=5,
+                        use_logsoftmax=False, sigma=0.1, beta_kl=1.0, beta_rec=1.0, dropout=0.0,
+                        dec_bone="gauss_pointnetpp", patch_size=16, topk=15, n_kp_enc=20, eval_epoch_freq=5,
                         learned_feature_dim=0, n_kp_prior=100, weight_decay=0.0, kp_range=(0, 1),
                         run_prefix="", mask_threshold=0.2, use_tps=False, use_pairs=False, use_object_enc=True,
                         use_object_dec=False, warmup_epoch=5, iou_thresh=0.15, anchor_s=0.25, learn_order=False,
                         kl_balance=0.1):
+    """
+    ds: dataset name (str)
+    enc_channels: channels for the posterior CNN (takes in the whole image)
+    prior_channels: channels for prior CNN (takes in patches)
+    n_kp: number of kp to extract from each (!) patch
+    n_kp_prior: number of kp to filter from the set of prior kp (of size n_kp x num_patches)
+    n_kp_enc: number of posterior kp to be learned (this is the actual number of kp that will be learnt)
+    use_logsoftmax: for spatial-softmax, set True to use log-softmax for numerical stability
+    pad_mode: padding for the CNNs, 'zeros' or  'replicate' (default)
+    sigma: the prior std of the KP
+    dropout: dropout for the CNNs. We don't use it though...
+    dec_bone: decoder backbone -- "gauss_pointnetpp_feat": Masked Model, "gauss_pointnetpp": "Object Model
+    patch_size: patch size for the prior KP proposals network (not to be confused with the glimpse size)
+    kp_range: the range of keypoints, can be [-1, 1] (default) or [0,1]
+    learned_feature_dim: the latent visual features dimensions extracted from glimpses.
+    kp_activation: the type of activation to apply on the keypoints: "tanh" for kp_range [-1, 1], "sigmoid" for [0, 1]
+    mask_threshold: activation threshold (>thresh -> 1, else 0) for the binary mask created from the Gaussian-maps.
+    anchor_s: defines the glimpse size as a ratio of image_size (e.g., 0.25 for image_size=128 -> glimpse_size=32)
+    learn_order: experimental feature to learn the order of keypoints - but it doesn't work yet.
+    use_object_enc: set True to use a separate encoder to encode visual features of glimpses.
+    use_object_dec: set True to use a separate decoder to decode glimpses (Object Model).
+    iou_thresh: intersection-over-union threshold for non-maximal suppression (nms) to filter bounding boxes
+    use_tps: set True to use a tps augmentation on the input image for datasets that support this option
+    use_pairs: for CelebA dataset, set True to use a tps-augmented image for the prior.
+    topk: the number top-k particles with the lowest variance (highest confidence) to filter for the plots.
+    warmup_epoch: (used for the Object Model) number of epochs where only the object decoder is trained.
+    recon_loss_type: tpe of pixel reconstruction loss ("mse", "vgg").
+    beta_rec: coefficient for the reconstruction loss (we use 1.0).
+    beta_kl: coefficient for the KL divergence term in the loss.
+    kl_balance: coefficient for the balance between the ChamferKL (for the KP)
+                and the standard KL (for the visual features),
+                kl_loss = beta_kl * (chamfer_kl + kl_balance * kl_features)
+    """
     # load data
     if ds == "celeba":
         image_size = 128
         imwidth = 160
         crop = 16
         ch = 3
-        # enc_channels = [64, 128, 256, 512]
         enc_channels = [32, 64, 128, 256]
-        # prior_channels = (16, 16, 32)
         prior_channels = (16, 32, 64)
         root = '/mnt/data/tal/celeba'
         if use_tps:
-            import tps
-            # warper = tps.WarperSingle(H=imwidth, W=imwidth)
+            import utils.tps as tps
             if use_pairs:
                 warper = tps.Warper(H=imwidth, W=imwidth, im1_multiplier=0.1, im1_multiplier_aff=0.1)
             else:
@@ -69,9 +95,7 @@ def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.de
     elif ds == "traffic":
         image_size = 128
         ch = 3
-        # enc_channels = [64, 128, 256, 512]
         enc_channels = [32, 64, 128, 256]
-        # prior_channels = (16, 16, 32)
         prior_channels = (16, 32, 64)
         # root = '/mnt/data/tal/traffic_dataset/img128np_fs3.npy'
         root = '/media/newhd/data/traffic_data/img128np_fs3.npy'
@@ -79,12 +103,11 @@ def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.de
         dataset = TrafficDataset(path_to_npy=root, image_size=image_size, mode=mode, train=True)
         milestones = (50, 100, 200)
     elif ds == 'clevrer':
-        # image_size = 128
-        image_size = 64
+        image_size = 128
+        # image_size = 64
         ch = 3
-        # enc_channels = [64, 128, 256, 512]
-        # enc_channels = [32, 64, 128, 256]
-        enc_channels = [32, 64, 128]
+        enc_channels = [32, 64, 128, 256]
+        # enc_channels = [32, 64, 128]
         # prior_channels = (16, 16, 32)
         prior_channels = (16, 32, 64)
         # root = '/mnt/data/tal/clevrer/clevrer_img128np_fs3_train.npy'
@@ -95,6 +118,7 @@ def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.de
     else:
         raise NotImplementedError
 
+    # save hyper-parameters
     hparams = {'ds': ds, 'batch_size': batch_size, 'lr': lr, 'kp_activation': kp_activation, 'pad_mode': pad_mode,
                'num_epochs': num_epochs, 'n_kp': n_kp, 'recon_loss_type': recon_loss_type,
                'use_logsoftmax': use_logsoftmax, 'sigma': sigma, 'beta_kl': beta_kl, 'beta_rec': beta_rec,
@@ -107,6 +131,7 @@ def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.de
                'milestones': milestones, 'image_size': image_size, 'enc_channels': enc_channels,
                'prior_channels': prior_channels}
 
+    # create dataloader
     dataloader = DataLoader(dataset, shuffle=True, batch_size=batch_size, num_workers=0, pin_memory=True,
                             drop_last=True)
     # model
@@ -117,6 +142,7 @@ def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.de
                         n_kp_prior=n_kp_prior, kp_range=kp_range, kp_activation=kp_activation,
                         mask_threshold=mask_threshold, use_object_enc=use_object_enc,
                         use_object_dec=use_object_dec, anchor_s=anchor_s, learn_order=learn_order).to(device)
+
     logvar_p = torch.log(torch.tensor(sigma ** 2)).to(device)  # logvar of the constant std -> for the kl
     # prepare saving location
     run_name = f'{ds}_var_particles_{dec_bone}' + run_prefix
@@ -125,20 +151,14 @@ def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.de
     save_dir = os.path.join(log_dir, 'saves')
     save_config(log_dir, hparams)
 
-    # fig_dir = f'./{ds}_figures_var_particles_{dec_bone}' + run_prefix
-    # save_dir = './saves'
-    # os.makedirs(fig_dir, exist_ok=True)
-    # os.makedirs(save_dir, exist_ok=True)
-
     kl_loss_func = ChamferLossKL(use_reverse_kl=False)
-    # kl_loss_func_intra = ChamferLossIntraKL(use_reverse_kl=False)
     if recon_loss_type == "vgg":
         recon_loss_func = VGGDistance(device=device)
     else:
         recon_loss_func = calc_reconstruction_loss
     betas = (0.9, 0.999)
-    # betas = (0.5, 0.9)
     eps = 1e-4
+    # we use separate optimizers for the encoder and decoder, but it is not really necessary...
     optimizer_e = optim.Adam(model.get_parameters(encoder=True, prior=True, decoder=False), lr=lr, betas=betas, eps=eps,
                              weight_decay=weight_decay)
     optimizer_d = optim.Adam(model.get_parameters(encoder=False, prior=False, decoder=True), lr=lr, betas=betas,
@@ -162,6 +182,7 @@ def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.de
     losses_kl_kp = []
     losses_kl_feat = []
 
+    # initialize linear regression statistics (celeba)
     linreg_error = best_linreg_error = 1.0
     best_linreg_epoch = 0
     linreg_logvar_error = best_linreg_logvar_error = 1.0
@@ -173,10 +194,12 @@ def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.de
     linreg_logvar_errors = []
     linreg_features_errors = []
 
+    # initialize validation statistics
     valid_loss = best_valid_loss = 1e8
     valid_losses = []
     best_valid_epoch = 0
 
+    # save PSNR values of the reconstruction
     psnrs = []
 
     for epoch in range(num_epochs):
@@ -189,32 +212,20 @@ def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.de
         batch_psnrs = []
         pbar = tqdm(iterable=dataloader)
         for batch in pbar:
-            if ds == 'playground':
-                prev_obs, obs = batch[0][:, 0], batch[0][:, 1]
-                # prev_obs, obs = prev_obs.to(device), obs.to(device)
-                x = prev_obs.to(device)
-                x[:, 1][x[:, 1] == 0.0] = 0.4
-                x_prior = x
-            elif ds == 'celeba':
+            if ds == 'celeba':
                 if len(batch['data'].shape) == 5:
                     x_prior = batch['data'][:, 0].to(device)
                     x = batch['data'][:, 1].to(device)
                 else:
                     x = batch['data'].to(device)
                     x_prior = x
-            elif ds == 'replay_buffer':
-                x = batch[0].to(device)
-                x_prior = x
-            elif ds == 'traffic' or ds == 'mario':
+            elif ds == 'traffic':
                 if mode == 'single':
                     x = batch.to(device)
                     x_prior = x
                 else:
                     x = batch[0].to(device)
                     x_prior = batch[1].to(device)
-            elif ds == 'bair':
-                x = batch[:, 1].to(device)
-                x_prior = batch[:, 0].to(device)
             elif ds == 'clevrer':
                 if mode == 'single':
                     x = batch.to(device)
@@ -227,15 +238,8 @@ def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.de
                 x_prior = x
             batch_size = x.shape[0]
             # forward pass
-            # use_stg = (epoch > 2 * warmup_epoch)
-            # use_stg = (2 * warmup_epoch < epoch < 3 * warmup_epoch)
-            use_stg = False
-            # use_stg = True
-            noisy_masks = (epoch < 5 * warmup_epoch)
-            # noisy_masks = True
-            # noisy_masks = (epoch < 10)
-            model_output = model(x, x_prior=x_prior, warmup=(epoch < warmup_epoch), stg=use_stg,
-                                 noisy_masks=noisy_masks)
+            noisy_masks = (epoch < 5 * warmup_epoch)  # add small noise to the alpha masks
+            model_output = model(x, x_prior=x_prior, warmup=(epoch < warmup_epoch), noisy_masks=noisy_masks)
             mu_p = model_output['kp_p']
             gmap = model_output['gmap']
             mu = model_output['mu']
@@ -246,19 +250,17 @@ def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.de
             # object stuff
             dec_objects_original = model_output['dec_objects_original']
             cropped_objects_original = model_output['cropped_objects_original']
-            # cropped_objects_alpha = model_output['cropped_objects_alpha']
-            # cropped_objects_masks = model_output['cropped_objects_masks']
             obj_on = model_output['obj_on']  # [batch_size, n_kp]
-            # mu_scale, logvar_scale = model_output['mu_scale'], model_output['logvar_scale']
-            # mu_trans, logvar_trans = model_output['mu_trans'], model_output['logvar_trans']
 
             # reconstruction error
             if use_object_dec and dec_objects_original is not None and epoch < warmup_epoch:
+                # reconstruct patches in the warmup stage
                 if recon_loss_type == "vgg":
                     _, dec_objects_rgb = torch.split(dec_objects_original, [1, 3], dim=2)
                     dec_objects_rgb = dec_objects_rgb.reshape(-1, *dec_objects_rgb.shape[2:])
                     cropped_objects_original = cropped_objects_original.reshape(-1,
                                                                                 *cropped_objects_original.shape[2:])
+                    # vgg has a minimal input size, so we interpolate if the patch is too small
                     if cropped_objects_original.shape[-1] < 32:
                         cropped_objects_original = F.interpolate(cropped_objects_original, size=32, mode='bilinear',
                                                                  align_corners=False)
@@ -276,6 +278,7 @@ def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.de
                                                             loss_type='mse', reduction='mean')
                 loss_rec = loss_rec_obj
             else:
+                # reconstruct full image
                 if recon_loss_type == "vgg":
                     loss_rec = recon_loss_func(x, rec_x, reduction="mean")
                 else:
@@ -285,36 +288,8 @@ def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.de
                     psnr = -10 * torch.log10(F.mse_loss(rec_x, x))
                     batch_psnrs.append(psnr.data.cpu().item())
 
-
             # kl-divergence
             logvar_kp = logvar_p.expand_as(mu_p)
-            # features_prior = torch.zeros(size=(mu_p.shape[0], mu_p.shape[1], learned_feature_dim),
-            #                              device=device).float()
-            # if learned_feature_dim > 0:
-            #     mu_post = torch.cat([mu, mu_features], dim=-1)
-            #     logvar_post = torch.cat([logvar, logvar_features], dim=-1)
-            #     mu_prior = torch.cat([mu_p, features_prior], dim=-1)
-            #     logvar_prior = torch.cat([logvar_kp, logvar_p.expand_as(features_prior)], dim=-1)
-            # else:
-            #     mu_post = mu
-            #     logvar_post = logvar
-            #     mu_prior = mu_p
-            #     logvar_prior = logvar_kp
-
-            # if use_object_dec:
-            #     scale_prior = torch.ones(size=(mu_p.shape[0], mu_p.shape[1], mu_scale.shape[-1]), device=device).float()
-            #     trans_prior = torch.zeros(size=(mu_p.shape[0], mu_p.shape[1], mu_trans.shape[-1]), device=device).float()
-            #     bb_logvar = torch.log(torch.tensor(sigma ** 2)).to(device)
-            #     mu_bb_post = torch.cat([mu_scale, mu_trans], dim=-1)
-            #     mu_bb_prior = torch.cat([scale_prior, trans_prior], dim=-1)
-            #     logvar_bb_post = torch.cat([logvar_scale, logvar_trans], dim=-1)
-            #     logvar_bb_prior = torch.cat([bb_logvar.expand_as(scale_prior),
-            #                                  bb_logvar.expand_as(trans_prior)], dim=-1)
-            #
-            #     mu_post = torch.cat([mu_post, mu_bb_post], dim=-1)
-            #     logvar_post = torch.cat([logvar_post, logvar_bb_post], dim=-1)
-            #     mu_prior = torch.cat([mu_prior, mu_bb_prior], dim=-1)
-            #     logvar_prior = torch.cat([logvar_prior, logvar_bb_prior], dim=-1)
 
             mu_post = mu
             logvar_post = logvar
@@ -324,16 +299,6 @@ def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.de
             loss_kl_kp = kl_loss_func(mu_preds=mu_post, logvar_preds=logvar_post, mu_gts=mu_prior,
                                       logvar_gts=logvar_prior).mean()
 
-            # kl_intra = kl_loss_func_intra(mu_preds=mu_post, logvar_preds=logvar_post, mu_gts=mu_post,
-            #                               logvar_gts=logvar_post).mean()
-            # loss_kl_kp = loss_kl_kp + kl_intra
-            # if kl_type == "chamfer":
-            #     loss_kl = kl_loss_func(mu_preds=mu_post, logvar_preds=logvar_post, mu_gts=mu_prior,
-            #                            logvar_gts=logvar_prior).mean()
-            # else:
-            #     loss_kl = calc_kl(logvar_post.reshape(batch_size, -1), mu_post.reshape(batch_size, -1),
-            #                       mu_o=mu_p.reshape(batch_size, -1), logvar_o=logvar_prior.reshape(batch_size, -1),
-            #                       reduce='mean')
             if learned_feature_dim > 0:
                 loss_kl_feat = calc_kl(logvar_features.view(-1, logvar_features.shape[-1]),
                                        mu_features.view(-1, mu_features.shape[-1]), reduce='none')
@@ -342,34 +307,11 @@ def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.de
                 loss_kl_feat = torch.tensor(0.0, device=device)
             loss_kl = loss_kl_kp + kl_balance * loss_kl_feat
 
-            # if use_object_dec:
-            #     scale_prior = torch.ones(size=(mu.shape[0], mu.shape[1], mu_scale.shape[-1]), device=device).float()
-            #     trans_prior = torch.zeros(size=(mu.shape[0], mu.shape[1], mu_trans.shape[-1]), device=device).float()
-            #     bb_logvar = torch.log(torch.tensor(sigma ** 2)).to(device)
-            #     mu_bb_post = torch.cat([mu_scale, mu_trans], dim=-1)
-            #     mu_bb_prior = torch.cat([scale_prior, trans_prior], dim=-1)
-            #     logvar_bb_post = torch.cat([logvar_scale, logvar_trans], dim=-1)
-            #     logvar_bb_prior = torch.cat([bb_logvar.expand_as(scale_prior),
-            #                                  bb_logvar.expand_as(trans_prior)], dim=-1)
-            #
-            #     kl_bb = calc_kl(logvar_bb_post.view(-1, logvar_bb_post.shape[-1]),
-            #                     mu_bb_post.view(-1, mu_bb_post.shape[-1]), mu_o=mu_bb_prior.view(-1, mu_bb_prior.shape[-1]),
-            #                     logvar_o=logvar_bb_prior.view(-1, logvar_bb_prior.shape[-1]), reduce='none')
-            #     kl_bb = kl_bb.view(batch_size, n_kp_enc + 1).sum(1).mean()
-            #     loss_kl = loss_kl + kl_bb
-
-            # if use_object_dec and dec_objects_original is not None and epoch < warmup_epoch:
-            #     loss_rec = loss_rec_obj
-            #     loss = beta_rec * loss_rec + beta_kl * loss_kl
-            # else:
-            #     loss = beta_rec * loss_rec + beta_kl * loss_kl
             loss = beta_rec * loss_rec + beta_kl * loss_kl
             # backprop
             optimizer_e.zero_grad()
             optimizer_d.zero_grad()
             loss.backward()
-            # if dec_bone in ["gauss", "gauss_feat", "gauss_pointent"]:
-            # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer_e.step()
             optimizer_d.step()
             # log
@@ -385,7 +327,6 @@ def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.de
                 pbar.set_description_str(f'epoch #{epoch} (noisy masks)')
             else:
                 pbar.set_description_str(f'epoch #{epoch}')
-            # pbar.set_description_str('epoch #{}'.format(epoch))
             pbar.set_postfix(loss=loss.data.cpu().item(), rec=loss_rec.data.cpu().item(),
                              kl=loss_kl.data.cpu().item())
         pbar.close()
@@ -418,19 +359,6 @@ def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.de
         print(log_str)
         log_line(log_dir, log_str)
 
-        # print(f'epoch {epoch} summary for dec backbone: {dec_bone}')
-        # print(f'loss: {losses[-1]:.3f}, rec: {losses_rec[-1]:.3f}, kl: {losses_kl[-1]:.3f}')
-        # print(f'kl_balance: {kl_balance:.3f}, kl_kp: {losses_kl_kp[-1]:.3f}, kl_feat: {losses_kl_feat[-1]:.3f}')
-        # if ds != 'celeba':
-        #     print(f'val loss (freq: {eval_epoch_freq}): {valid_loss:.3f},'
-        #           f' best: {best_valid_loss:.3f} @ epoch: {best_valid_epoch}')
-        # print(f'mu max: {mu.max()}, mu min: {mu.min()}')
-        # if obj_on is not None:
-        #     print(f'obj_on max: {obj_on.max()}, obj_on min: {obj_on.min()}')
-        # if mu_scale is not None:
-        #     print(f'scale max: {mu_scale.max()}, scale min: {mu_scale.min()}')
-        # if mu_trans is not None:
-        #     print(f'trans max: {mu_trans.max()}, trans min: {mu_trans.min()}')
         if epoch % eval_epoch_freq == 0 or epoch == num_epochs - 1:
             max_imgs = 8
             img_with_kp = plot_keypoints_on_image_batch(mu.clamp(min=kp_range[0], max=kp_range[1]), x, radius=3,
@@ -491,11 +419,6 @@ def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.de
                                              img_with_kp_topk[:max_imgs, -3:].to(device)],
                                             dim=0).data.cpu(), '{}/image_{}.jpg'.format(fig_dir, epoch),
                                   nrow=8, pad_value=1)
-            # vutils.save_image(torch.cat([x[:max_imgs, -3:], img_with_kp[:max_imgs, -3:].to(device),
-            #                              rec_x[:max_imgs, -3:], img_with_kp_p[:max_imgs, -3:].to(device),
-            #                              img_with_kp_topk[:max_imgs, -3:].to(device)],
-            #                             dim=0).data.cpu(), '{}/image_{}.jpg'.format(fig_dir, epoch),
-            #                   nrow=8, pad_value=1)
             torch.save(model.state_dict(),
                        os.path.join(save_dir, f'{ds}_var_particles_{dec_bone}{run_prefix}.pth'))
             if ds == "celeba":
@@ -539,32 +462,21 @@ def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.de
                 linreg_str = f'eval epoch {epoch}: error: {linreg_error * 100:.4f}%,' \
                              f' error with logvar: {linreg_logvar_error * 100:.4f},' \
                              f' train logvar error: {linreg_logvar_error_train * 100:.4f}%\n'
-                # print(
-                #     f'eval epoch {epoch}: error: {linreg_error * 100:.4f}%,'
-                #     f' error with logvar: {linreg_logvar_error * 100:.4f}%'
-                #     f' train logvar error: {linreg_logvar_error_train * 100:.4f}')
                 if learned_feature_dim > 0:
                     linreg_str += f'error with features: {linreg_features_error * 100:.4f}%,' \
                                   f' train logvar error: {linreg_features_error_train * 100:.4f}%\n'
-                    # print(f'error with features: {linreg_features_error * 100:.4f}% '
-                    #       f'train logvar error: {linreg_features_error_train * 100:.4f}%')
                 linreg_str += f'best error {best_linreg_epoch}: {best_linreg_error * 100:.4f}%,' \
                               f'  error with logvar {best_linreg_logvar_epoch}: {best_linreg_logvar_error * 100:.4f}%\n'
-                # print(
-                #     f'best error {best_linreg_epoch}: {best_linreg_error * 100:.4f}%,'
-                #     f' error with logvar {best_linreg_logvar_epoch}: {best_linreg_logvar_error * 100:.4f}%')
                 if learned_feature_dim > 0:
                     linreg_str += f'error with features' \
                                   f' {best_linreg_features_epoch}: {best_linreg_features_error * 100:.4f}%\n'
-                    # print(
-                    #     f'error with features {best_linreg_features_epoch}: {best_linreg_features_error * 100:.4f}%')
                 print(linreg_str)
                 log_line(log_dir, linreg_str)
             else:
-                # valid_loss = evaluate_validation_elbo(model, ds, epoch, batch_size=batch_size,
-                #                                       recon_loss_type=recon_loss_type, device=device, save_image=True,
-                #                                       fig_dir=fig_dir, topk=topk, recon_loss_func=recon_loss_func,
-                #                                       beta_rec=beta_rec, beta_kl=beta_kl, kl_balance=kl_balance)
+                valid_loss = evaluate_validation_elbo(model, ds, epoch, batch_size=batch_size,
+                                                      recon_loss_type=recon_loss_type, device=device, save_image=True,
+                                                      fig_dir=fig_dir, topk=topk, recon_loss_func=recon_loss_func,
+                                                      beta_rec=beta_rec, beta_kl=beta_kl, kl_balance=kl_balance)
                 if best_valid_loss > valid_loss:
                     best_valid_loss = valid_loss
                     best_valid_epoch = epoch
@@ -615,7 +527,6 @@ def train_var_particles(ds="playground", batch_size=16, lr=5e-4, device=torch.de
 
 if __name__ == "__main__":
     lr = 2e-4
-    # lr = 5e-5
     batch_size = 32
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     num_epochs = 5000
@@ -628,7 +539,7 @@ if __name__ == "__main__":
     sigma = 0.1  # default sigma for the gaussian maps
     dropout = 0.0
 
-    beta_kl = 1.0  # 0.1 mse, 30.0 vgg
+    beta_kl = 1.0
     beta_rec = 1.0
 
     n_kp = 1  # num kp per patch
@@ -643,23 +554,15 @@ if __name__ == "__main__":
     kp_range = (-1, 1)
 
     weight_decay = 0.0
-    # weight_decay = 5e-4
 
     dec_bone = "gauss_pointnetpp"
     # dec_bone = "gauss_pointnetpp_feat"
 
     topk = min(10, n_kp_enc)  # display top-10 kp with smallest variance
-    # topk = min(3, n_kp_enc)
 
-    # ds = 'playground'
     # ds = 'celeba'
-    # ds = 'replay_buffer'
     # ds = 'traffic'
-    # ds = 'clevrer'
-    ds = 'mario'
-
-    # kl_type = "chamfer"
-    # kl_type = "regular"
+    ds = 'clevrer'
 
     recon_loss_type = "mse"
     # recon_loss_type = "vgg"
@@ -668,9 +571,7 @@ if __name__ == "__main__":
     # kp_activation = "sigmoid"
     kp_activation = "tanh"
 
-    # run_prefix = "_soft"
     run_prefix = ""
-    # run_prefix = "_ln"
 
     use_tps = False
     use_pairs = False

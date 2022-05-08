@@ -518,7 +518,8 @@ class KeyPointVAE(nn.Module):
 
     def forward(self, x, deterministic=False, detach_decoder=False, x_prior=None, warmup=False, stg=False,
                 noisy_masks=False):
-        # first, extract prior Kp proposals
+        # stg: straight-through-gradients. not used.
+        # first, extract prior KP proposals
         # prior
         if x_prior is None:
             x_prior = x

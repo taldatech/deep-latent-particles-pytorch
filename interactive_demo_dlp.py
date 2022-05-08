@@ -14,6 +14,7 @@ from matplotlib.widgets import Slider, Button
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 import numpy as np
+import argparse
 
 matplotlib.use('Qt5Agg')
 
@@ -45,7 +46,7 @@ def update(val):
     new_mu = torch.from_numpy(np.stack([yvals, xvals], axis=-1)).unsqueeze(0).to(device) / (image_size - 1)  # [0, 1]
     new_mu = new_mu * (kp_range[1] - kp_range[0]) + kp_range[0]  # [kp_range[0], kp_range[1]]
     delta_mu = new_mu - original_mu
-    print(f'delta_mu: {delta_mu}')
+    # print(f'delta_mu: {delta_mu}')
     if learned_feature_dim > 0:
         new_features = torch.from_numpy(feature_1_vals[None, :, None]).to(device)
         new_features = torch.cat([mu_features[:, :, :-1], new_features], dim=-1)
@@ -168,28 +169,35 @@ def bn_eval(model):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="DLP Interactive Demo")
+    parser.add_argument("-d", "--dataset", type=str, default='celeb',
+                        help="dataset of pretrained model: ['celeb', 'traffic', 'clevrer']")
+    parser.add_argument("-i", "--index", type=int,
+                        help="index of image in ./checkpoints/sample_images/dataset/", default=0)
+    args = parser.parse_args()
     # hyper-parameters for model
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     use_logsoftmax = False
-    # pad_mode = 'zeros'
     pad_mode = 'replicate'
     sigma = 0.1  # default sigma for the gaussian maps
     dropout = 0.0
     n_kp = 1  # num kp per patch
-    # n_kp_enc = 8  # total kp to output from the encoder / filter from prior
-    # n_kp_prior = 20  # total kp to filter from prior
-    # patch_size = 8
-    ds = 'celeb'
+    kp_range = (-1, 1)
+    kp_activation = "tanh"
+    mask_threshold = 0.2
+    learn_order = False
+
+    # ds = 'celeb'
     # ds = 'traffic'
     # ds = 'clevrer'
-    # ds = 'playground'
-    # ds = 'mario'
+    ds = args.dataset
 
-    # dec_bone = "gauss_pointnetpp"
-    # dec_bone = "gauss_pointnetpp_feat"
+    # image_idx = 2
+    image_idx = args.index
+    image_idx = max(0, image_idx)
 
     if ds == 'celeb':
-        path_to_model_ckpt = './saves/best30_050122_131101_celeba_var_particles_gauss_pointnetpp_feat/saves/celeba_var_particles_gauss_pointnetpp_feat_best.pth'
+        path_to_model_ckpt = './checkpoints/dlp_celeba_gauss_pointnetpp_feat.pth'
         image_size = 128
         ch = 3
         enc_channels = [32, 64, 128, 256]
@@ -204,27 +212,8 @@ if __name__ == '__main__':
         patch_size = 8
         anchor_s = 0.125
         dec_bone = "gauss_pointnetpp_feat"
-    elif ds == 'playground':
-        # path_to_model_ckpt = './saves/playground_var_particles_gauss_pointnetpp_obj_enc_dec.pth'
-        # path_to_model_ckpt = './230122_124452_playground_var_particles_gauss_pointnetpp/saves/playground_var_particles_gauss_pointnetpp.pth'  # best
-        path_to_model_ckpt = './250122_095827_playground_var_particles_gauss_pointnetpp/saves/playground_var_particles_gauss_pointnetpp.pth'
-        # path_to_model_ckpt = './saves/playground_var_particles_gauss_pointnetpp_obj_enc_dec_sep_kl.pth'
-        image_size = 64
-        ch = 3
-        enc_channels = (16, 16, 32)
-        prior_channels = enc_channels
-        imwidth = 160
-        crop = 16
-        n_kp_enc = 8  # total kp to output from the encoder / filter from prior
-        n_kp_prior = 20  # total kp to filter from prior
-        use_object_enc = True
-        use_object_dec = True
-        learned_feature_dim = 10
-        patch_size = 8
-        anchor_s = 0.125
-        dec_bone = "gauss_pointnetpp"
     elif ds == 'traffic':
-        path_to_model_ckpt = './saves/180122_165815_traffic_var_particles_gauss_pointnetpp/saves/traffic_var_particles_gauss_pointnetpp_best.pth'
+        path_to_model_ckpt = './checkpoints/dlp_traffic_gauss_pointnetpp.pth'
         image_size = 128
         ch = 3
         enc_channels = [32, 64, 128, 256]
@@ -240,7 +229,7 @@ if __name__ == '__main__':
         anchor_s = 0.25
         dec_bone = "gauss_pointnetpp"
     elif ds == 'clevrer':
-        path_to_model_ckpt = './saves/clevrerf5_240122_095019_clevrer_var_particles_gauss_pointnetpp/saves/clevrer_var_particles_gauss_pointnetpp_best.pth'
+        path_to_model_ckpt = './checkpoints/dlp_clevrer_gauss_pointnetpp.pth'
         image_size = 128
         ch = 3
         enc_channels = [32, 64, 128, 256]
@@ -255,31 +244,8 @@ if __name__ == '__main__':
         patch_size = 16
         anchor_s = 0.25
         dec_bone = "gauss_pointnetpp"
-    elif ds == 'mario':
-        path_to_model_ckpt = './240122_152651_mario_var_particles_gauss_pointnetpp/saves/mario_var_particles_gauss_pointnetpp.pth'
-        image_size = 128
-        ch = 3
-        enc_channels = [32, 64, 128, 256]
-        prior_channels = (16, 32, 64)
-        imwidth = 160
-        crop = 16
-        n_kp_enc = 30  # total kp to output from the encoder / filter from prior
-        n_kp_prior = 50  # total kp to filter from prior
-        use_object_enc = True
-        use_object_dec = True
-        learned_feature_dim = 32
-        patch_size = 8
-        anchor_s = 0.25
-        dec_bone = "gauss_pointnetpp"
     else:
         raise NotImplementedError
-
-    kp_range = (-1, 1)
-    # kp_activation = "none"
-    # kp_activation = "sigmoid"
-    kp_activation = "tanh"
-    mask_threshold = 0.2
-    learn_order = False
 
     model = KeyPointVAE(cdim=ch, enc_channels=enc_channels, prior_channels=prior_channels,
                         image_size=image_size, n_kp=n_kp, learned_feature_dim=learned_feature_dim,
@@ -289,21 +255,18 @@ if __name__ == '__main__':
                         mask_threshold=mask_threshold, use_object_enc=use_object_enc,
                         use_object_dec=use_object_dec, anchor_s=anchor_s, learn_order=learn_order).to(device)
     model.load_state_dict(torch.load(path_to_model_ckpt, map_location=device), strict=False)
-    # bn_eval(model)
     model.eval()
     print("loaded model from checkpoint")
     if ds == 'celeb':
         # load image
-        # path_to_image = '../sample_images/070786.jpg'  # female
-        # path_to_image = '../sample_images/190759.jpg' # male
-        # path_to_image = '../sample_images/009151.jpg'
-        path_to_image = '../sample_images/018905.jpg'
-        # path_to_image = '../sample_images/025479.jpg'
-        # path_to_image = '../sample_images/051628.jpg'
-        # path_to_image = '../sample_images/120346.jpg'
-        # path_to_image = '../sample_images/160695.jpg'
+        path_to_images = ['./checkpoints/sample_images/celeb/1.jpg', './checkpoints/sample_images/celeb/2.jpg',
+                          './checkpoints/sample_images/celeb/3.jpg', './checkpoints/sample_images/celeb/4.jpg',
+                          './checkpoints/sample_images/celeb/5.jpg', './checkpoints/sample_images/celeb/6.jpg',
+                          './checkpoints/sample_images/celeb/7.jpg', './checkpoints/sample_images/celeb/8.jpg']
+        image_idx = min(image_idx, len(path_to_images) - 1)
+        path_to_image = path_to_images[image_idx]
         im = Image.open(path_to_image)
-        # Move head up a bit
+        # move head up a bit
         vertical_shift = 30
         initial_crop = lambda im: transforms.functional.crop(im, 30, 0, 178, 178)
         initial_transforms = transforms.Compose([initial_crop, transforms.Resize(imwidth)])
@@ -313,10 +276,9 @@ if __name__ == '__main__':
             data = data[:, crop:-crop, crop:-crop]
         data = data.unsqueeze(0).to(device)
     elif ds == 'traffic':
-        # path_to_image = '../sample_images/101.png'  # traffic 1
-        path_to_image = '../sample_images/29974.png'  # traffic 2
-        # path_to_image = '../sample_images/57944.png'  # traffic 3
-        # path_to_image = '../sample_images/76497.png'  # traffic 4
+        path_to_images = ['./checkpoints/sample_images/traffic/1.png',]
+        image_idx = min(image_idx, len(path_to_images) - 1)
+        path_to_image = path_to_images[image_idx]
         im = Image.open(path_to_image)
         im = im.convert('RGB')
         im = im.crop((60, 0, 480, 420))
@@ -326,9 +288,9 @@ if __name__ == '__main__':
         data = data.unsqueeze(0).to(device)
         x = data
     elif ds == 'clevrer':
-        # path_to_image = '../sample_images/clevr1.png'
-        path_to_image = '../sample_images/clevr2.png'
-        # path_to_image = '../sample_images/clevr7.png'
+        path_to_images = ['./checkpoints/sample_images/clevrer/1.png',]
+        image_idx = min(image_idx, len(path_to_images) - 1)
+        path_to_image = path_to_images[image_idx]
         im = Image.open(path_to_image)
         im = im.convert('RGB')
         im = im.resize((image_size, image_size), Image.BICUBIC)
@@ -351,7 +313,6 @@ if __name__ == '__main__':
             z_features = reparameterize(mu_features, logvar_features)
 
         if learn_order:
-            # _, order_weights = model.get_aux_dec(z, z_features)
             order_of_kp = [torch.argmax(order_weights[0][i]).item() for i in range(order_weights.shape[-1])]
             print(f'order of kp: {order_of_kp}')
         if obj_on is not None:
@@ -396,11 +357,13 @@ if __name__ == '__main__':
     ax1.imshow(image)
     ax1.scatter(xvals, yvals, label='original', s=70)
     ax1.set_axis_off()
+    ax1.set_title('all particles')
     fig = plt.figure(figsize=(10, 10))
     ax2 = fig.add_subplot(111)
     ax2.imshow(image)
     ax2.scatter(xvals_topk, yvals_topk, label='topk', s=70, color='red')
     ax2.set_axis_off()
+    ax2.set_title('top-5 lowest variance particles')
 
     # figure.subplot.right
     mpl.rcParams['figure.subplot.right'] = 0.8
