@@ -170,8 +170,8 @@ def bn_eval(model):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="DLP Interactive Demo")
-    parser.add_argument("-d", "--dataset", type=str, default='celeb',
-                        help="dataset of pretrained model: ['celeb', 'traffic', 'clevrer']")
+    parser.add_argument("-d", "--dataset", type=str, default='celeba',
+                        help="dataset of pretrained model: ['celeba', 'traffic', 'clevrer']")
     parser.add_argument("-i", "--index", type=int,
                         help="index of image in ./checkpoints/sample_images/dataset/", default=0)
     args = parser.parse_args()
@@ -187,16 +187,12 @@ if __name__ == '__main__':
     mask_threshold = 0.2
     learn_order = False
 
-    # ds = 'celeb'
-    # ds = 'traffic'
-    # ds = 'clevrer'
     ds = args.dataset
 
-    # image_idx = 2
     image_idx = args.index
     image_idx = max(0, image_idx)
 
-    if ds == 'celeb':
+    if ds == 'celeba':
         path_to_model_ckpt = './checkpoints/dlp_celeba_gauss_pointnetpp_feat.pth'
         image_size = 128
         ch = 3

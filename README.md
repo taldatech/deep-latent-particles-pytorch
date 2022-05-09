@@ -67,18 +67,19 @@ Daniel, Tal, and Aviv Tamar. "Soft-IntroVAE: Analyzing and Improving the Introsp
     * Use the terminal or an Anaconda Prompt and run the following command `conda env create -f environment.yml`.
 
 
-|Library         | Version |
-|----------------------|----|
-|`Python`|  `3.6 (Anaconda)`|
-|`torch`|  >= `1.7.1`|
-|`torch_geometric`|  >= `1.7.1`|
-|`torchvision`|  >= `0.4`|
-|`matplotlib`|  >= `2.2.2`|
-|`numpy`|  >= `1.17`|
-|`py-opencv`|  >= `3.4.2`|
-|`tqdm`| >= `4.36.1`|
-|`scipy`| >= `1.3.1`|
-|`accelerate`| >= `0.3.0`|
+| Library           | Version          |
+|-------------------|------------------|
+| `Python`          | `3.7 (Anaconda)` |
+| `torch`           | >= `1.7.1`       |
+| `torch_geometric` | >= `1.7.1`       |
+| `torchvision`     | >= `0.4`         |
+| `matplotlib`      | >= `2.2.2`       |
+| `numpy`           | >= `1.17`        |
+| `py-opencv`       | >= `3.4.2`       |
+| `tqdm`            | >= `4.36.1`      |
+| `scipy`           | >= `1.3.1`       |
+| `scikit-image`    | >= `0.18.1`      |
+| `accelerate`      | >= `0.3.0`       |
 
 
 

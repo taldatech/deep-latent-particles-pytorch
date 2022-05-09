@@ -12,7 +12,7 @@ import torchvision.utils as vutils
 from datasets.traffic_ds import TrafficDataset
 from datasets.clevrer_ds import CLEVRERDataset
 # util functions
-from utils.util_func import plot_keypoints_on_image_batch, reparameterize, animate_trajectories
+from utils.util_func import plot_keypoints_on_image_batch
 
 
 def evaluate_validation_elbo(model, ds, epoch, batch_size=100, recon_loss_type="vgg", device=torch.device('cpu'),
@@ -310,76 +310,3 @@ def evaluate_validation_vp_dyn(model, ds, epoch, batch_size=100, loss_type="vgg"
                                     dim=0).data.cpu(), '{}/image_valid_{}.jpg'.format(fig_dir, epoch), nrow=8,
                           pad_value=1)
     return np.mean(pred_errs)
-
-
-def animate_trajectory_vp_dyn(model, ds, epoch, device=torch.device('cpu'), fig_dir='./', timestep_horizon=3,
-                              num_trajetories=5, accelerator=None, train=False):
-    # load data
-    if ds == "playground":
-        raise NotImplementedError(f'dataset: {ds} not implemented yet...')
-        # image_size = 64
-        # path_to_data_pickle = '../playground_ep_500_steps_20_ra_1_traj_waction_rotate_True_rectangle_ball_tri_s.pickle'
-        # # path_to_data_pickle = '/mnt/data/tal/box2dplayground/playground_ep_500.pickle'
-        # # path_to_data_pickle = '/media/newhd/data/playground/playground_ep_500.pickle'
-        # dataset = PlaygroundTrajectoryDataset(path_to_data_pickle, image_size=image_size, timestep_horizon=2,
-        #                                       with_actions=True, traj_length=20)
-    elif ds == "traffic":
-        image_size = 128
-        # root = '/media/newhd/data/traffic_data/img128np_fs3.npy'
-        # root = '/mnt/data/tal/traffic_data/img128np_fs3.npy'
-        root = '/mnt/data/tal/traffic_dataset/img128np_fs3.npy'
-        mode = 'horizon'
-        # dataset should return previous timesteps (timstep_horizon) + current (1)
-        dataset = TrafficDataset(path_to_npy=root, image_size=image_size, mode=mode, train=train,
-                                 horizon=timestep_horizon + 1)
-    elif ds == 'clevrer':
-        image_size = 128
-        root = '/mnt/data/tal/clevrer/clevrer_img128np_fs3_valid.npy'
-        # root = '/media/newhd/data/clevrer/valid/clevrer_img128np_fs3_valid.npy'
-        mode = 'horizon'
-        dataset = CLEVRERDataset(path_to_npy=root, image_size=image_size, mode=mode, train=train,
-                                 horizon=timestep_horizon + 1)
-    elif ds == 'replay_buffer':
-        raise NotImplementedError(f'dataset: {ds} not implemented yet...')
-        # image_size = 64
-        # root = '../../../SAC-AE/pytorch_sac_ae/data/cheetah_run'
-        # dataset = ReplayBufferDataset(path_to_dir=root, image_size=image_size, obs_shape=(84, 84, 3))
-    else:
-        raise NotImplementedError
-
-    dataloader = DataLoader(dataset, shuffle=True, batch_size=num_trajetories, num_workers=0, drop_last=False)
-    batch = next(iter(dataloader))
-    model_timestep_horizon = model.timestep_horizon
-
-    if ds == 'playground':
-        prev_obs, obs = batch[0][:, 0], batch[0][:, 1]
-        # prev_obs, obs = prev_obs.to(device), obs.to(device)
-        x = prev_obs.to(device)
-        # change bg to random color
-        rand_ch = np.random.randint(low=0, high=3, size=1)[0]
-        rand_val = 0.3 + 0.4 * np.random.rand(1)[0]
-        # x[:, rand_ch][x[:, rand_ch] == 0.0] = rand_val
-        x[:, 1][x[:, 1] == 0.0] = 0.4
-        x_prior = x
-    elif ds == 'replay_buffer':
-        x = batch[0].to(device)
-        x_prior = x
-    elif ds == 'traffic' or ds == 'bair' or ds == 'clevrer':
-        x = batch.to(device)  # [bs, ts_hor + 1, 3, img_size, im_size]
-    else:
-        x = batch
-        x_prior = x
-    x_horizon, x_target = torch.split(x, [timestep_horizon, 1], dim=1)
-    # forward pass
-    with torch.no_grad():
-        x_horizon_model = x_horizon[:, :model_timestep_horizon]
-        _, _, preds = model.forward_unroll_image(x_horizon_model, num_steps=timestep_horizon - model_timestep_horizon)
-        # preds: [bs, timestep_horizon, 3, im_size, im_size]
-    for i in range(x_horizon.shape[0]):
-        gt_traj = x_horizon[i].permute(0, 2, 3, 1).data.cpu().numpy()
-        pred_traj = preds[i].permute(0, 2, 3, 1).data.cpu().numpy()
-        if accelerator is not None:
-            if accelerator.is_main_process:
-                animate_trajectories(gt_traj, pred_traj, path=os.path.join(fig_dir, f'e{epoch}_traj_anim_{i}.gif'))
-        else:
-            animate_trajectories(gt_traj, pred_traj, path=os.path.join(fig_dir, f'e{epoch}_traj_anim_{i}.gif'))

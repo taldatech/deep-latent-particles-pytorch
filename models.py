@@ -19,7 +19,7 @@ class KeyPointVAE(nn.Module):
                  use_logsoftmax=False, pad_mode='replicate', sigma=0.1, dropout=0.0, dec_bone="gauss_pointnetpp",
                  patch_size=16, n_kp_enc=20, n_kp_prior=20, learned_feature_dim=16,
                  kp_range=(-1, 1), kp_activation="tanh", mask_threshold=0.2, anchor_s=0.25,
-                 use_object_enc=False, use_object_dec=False, learn_order=False):
+                 use_object_enc=False, use_object_dec=False, learn_order=False, exclusive_patches=False):
         super(KeyPointVAE, self).__init__()
         """
         cdim: channels of the input image (3...)
@@ -42,6 +42,7 @@ class KeyPointVAE(nn.Module):
         learn_order: experimental feature to learn the order of keypoints - but it doesn't work yet.
         use_object_enc: set True to use a separate encoder to encode visual features of glimpses.
         use_object_dec: set True to use a separate decoder to decode glimpses (Object Model).
+        exclusive_patches: (mostly) enforce one particle pre object by masking up regions that were already encoded.
         """
         if dec_bone not in ["gauss_pointnetpp", "gauss_pointnetpp_feat"]:
             raise SystemError(f'unrecognized decoder backbone: {dec_bone}')
@@ -77,6 +78,7 @@ class KeyPointVAE(nn.Module):
         print(f'object encoder: {self.use_object_enc}, object decoder: {self.use_object_dec}')
         self.learn_order = learn_order
         print(f'learn particles order: {self.learn_order}')
+        self.exclusive_patches = exclusive_patches
 
         # encoder
         self.enc = KeyPointCNNOriginal(cdim=cdim, channels=enc_channels, image_size=image_size, n_kp=self.n_kp_enc,
@@ -246,7 +248,7 @@ class KeyPointVAE(nn.Module):
         mu_features, logvar_features = torch.chunk(enc_out, chunks=2, dim=-1)  # [bs, n_kp + 1, learned_feature_dim]
         return mu_features, logvar_features
 
-    def encode_object_features_sep(self, x, kp, features_map, masks):
+    def encode_object_features_sep(self, x, kp, features_map, masks, exclusive_patches=False):
         # x: [bs, ch, image_size, image_size]
         # kp :[bs, n_kp, 2]
         # features_map: [bs, n_kp, features_dim, features_dim]
@@ -255,7 +257,7 @@ class KeyPointVAE(nn.Module):
         batch_size, n_kp, features_dim, _ = masks.shape
 
         # object features
-        obj_enc_out = self.object_enc_sep(x, kp.detach())
+        obj_enc_out = self.object_enc_sep(x, kp.detach(), exclusive_patches=exclusive_patches)
         mu_obj, logvar_obj, cropped_objects = obj_enc_out[0], obj_enc_out[1], obj_enc_out[2]
         if len(obj_enc_out) > 3:
             cropped_objects_masks = obj_enc_out[3]
@@ -265,8 +267,8 @@ class KeyPointVAE(nn.Module):
         # bg beatures
         if self.use_object_dec:
             obj_fmap_masks = create_masks_fast(kp.detach(), anchor_s=self.anchor_s, feature_dim=self.features_dim)
-            bg_mask = 1 - obj_fmap_masks.squeeze(2).sum(1, keepdim=True).clamp(0,
-                                                                               1)  # [bs, 1, features_dim, features_dim]
+            bg_mask = 1 - obj_fmap_masks.squeeze(2).sum(1, keepdim=True).clamp(0, 1)
+            # [bs, 1, features_dim, features_dim]
         else:
             bg_mask = masks[:, -1].unsqueeze(1)  # [bs, 1, features_dim, features_dim]
         masked_features = bg_mask.unsqueeze(2) * features_map.unsqueeze(1)  # [bs, 1, n_kp, f_dim, f_dim]
@@ -557,7 +559,8 @@ class KeyPointVAE(nn.Module):
             if self.use_object_enc:
                 feat_source = x if self.use_object_dec else kp_heatmap.detach()
                 obj_enc_out = self.encode_object_features_sep(feat_source, z[:, :-1], kp_heatmap.detach(),
-                                                              masks_sep.detach())
+                                                              masks_sep.detach(),
+                                                              exclusive_patches=self.exclusive_patches)
                 mu_features, logvar_features, cropped_objects = obj_enc_out[0], obj_enc_out[1], obj_enc_out[2]
                 if len(obj_enc_out) > 3:
                     cropped_objects_masks = obj_enc_out[3]
