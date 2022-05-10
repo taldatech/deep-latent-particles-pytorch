@@ -24,7 +24,7 @@ def generate_shape_dataset(img_size=64, min_shapes=2, max_shapes=5, min_size=10,
     return images
 
 
-def generate_shape_dataset_torch(img_size=64, min_shapes=2, max_shapes=5, min_size=8, max_size=15, allow_overlap=False,
+def generate_shape_dataset_torch(img_size=64, min_shapes=2, max_shapes=5, min_size=11, max_size=13, allow_overlap=False,
                                  num_images=10_000):
     images = generate_shape_dataset(img_size=img_size, min_shapes=min_shapes, max_shapes=max_shapes, min_size=min_size,
                                     max_size=max_size,

@@ -38,6 +38,7 @@ from models import KeyPointVAE
 from datasets.celeba_dataset import CelebAPrunedAligned_MAFLVal, evaluate_lin_reg_on_mafl
 from datasets.traffic_ds import TrafficDataset
 from datasets.clevrer_ds import CLEVRERDataset
+from datasets.shapes_ds import generate_shape_dataset_torch
 # util functions
 from utils.util_func import plot_keypoints_on_image_batch, create_masks_fast, prepare_logdir, \
     save_config, log_line, plot_bb_on_image_batch_from_masks_nms
@@ -55,8 +56,8 @@ def train_dlp(ds="celeba", batch_size=16, lr=5e-4, kp_activation="none",
               patch_size=16, topk=15, n_kp_enc=20, eval_epoch_freq=5,
               learned_feature_dim=0, n_kp_prior=100, weight_decay=0.0, kp_range=(0, 1),
               run_prefix="", mask_threshold=0.2, use_tps=False, use_pairs=False, use_object_enc=True,
-              use_object_dec=False, warmup_epoch=5, iou_thresh=0.15, anchor_s=0.25, learn_order=False,
-              kl_balance=0.1):
+              use_object_dec=False, warmup_epoch=5, iou_thresh=0.2, anchor_s=0.25, learn_order=False,
+              kl_balance=0.1, exclusive_patches=False):
     """
     ds: dataset name (str)
     enc_channels: channels for the posterior CNN (takes in the whole image)
@@ -89,6 +90,7 @@ def train_dlp(ds="celeba", batch_size=16, lr=5e-4, kp_activation="none",
     kl_balance: coefficient for the balance between the ChamferKL (for the KP)
                 and the standard KL (for the visual features),
                 kl_loss = beta_kl * (chamfer_kl + kl_balance * kl_features)
+    exclusive_patches: (mostly) enforce one particle pre object by masking up regions that were already encoded.
     """
     ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
     accelerator = Accelerator(kwargs_handlers=[ddp_kwargs])
@@ -142,6 +144,14 @@ def train_dlp(ds="celeba", batch_size=16, lr=5e-4, kp_activation="none",
         mode = 'single'
         dataset = CLEVRERDataset(path_to_npy=root, image_size=image_size, mode=mode, train=True)
         milestones = (30, 60, 100)
+    elif ds == "shapes":
+        image_size = 64
+        ch = 3
+        enc_channels = [32, 64, 128]
+        prior_channels = (16, 32, 64)
+        print('generating random shapes dataset')
+        dataset = generate_shape_dataset_torch(num_images=20_000)
+        milestones = (20, 50, 80)
     else:
         raise NotImplementedError
 
@@ -155,7 +165,7 @@ def train_dlp(ds="celeba", batch_size=16, lr=5e-4, kp_activation="none",
                'use_object_enc': use_object_enc, 'use_object_dec': use_object_dec, 'warmup_epoch': warmup_epoch,
                'iou_thresh': iou_thresh, 'anchor_s': anchor_s, 'learn_order': learn_order, 'kl_balance': kl_balance,
                'milestones': milestones, 'image_size': image_size, 'enc_channels': enc_channels,
-               'prior_channels': prior_channels}
+               'prior_channels': prior_channels, 'exclusive_patches': exclusive_patches}
 
     dataloader = DataLoader(dataset, shuffle=True, batch_size=batch_size, num_workers=0, pin_memory=True,
                             drop_last=True)
@@ -165,8 +175,8 @@ def train_dlp(ds="celeba", batch_size=16, lr=5e-4, kp_activation="none",
                         use_logsoftmax=use_logsoftmax, pad_mode=pad_mode, sigma=sigma,
                         dropout=dropout, dec_bone=dec_bone, patch_size=patch_size, n_kp_enc=n_kp_enc,
                         n_kp_prior=n_kp_prior, kp_range=kp_range, kp_activation=kp_activation,
-                        mask_threshold=mask_threshold, use_object_enc=use_object_enc,
-                        use_object_dec=use_object_dec, anchor_s=anchor_s, learn_order=learn_order)
+                        mask_threshold=mask_threshold, use_object_enc=use_object_enc, use_object_dec=use_object_dec,
+                        anchor_s=anchor_s, learn_order=learn_order, exclusive_patches=exclusive_patches)
     logvar_p = torch.log(torch.tensor(sigma ** 2)).to(accelerator.device)  # logvar of the constant std -> for the kl
     # prepare saving location
     run_name = f'{ds}_dlp_{dec_bone}' + run_prefix
@@ -625,6 +635,8 @@ if __name__ == "__main__":
                         default=2)
     parser.add_argument("--anchor_s", type=float,
                         help="defines the glimpse size as a ratio of image_size", default=0.25)
+    parser.add_argument("--exclusive_patches", action='store_true',
+                        help="set True to enable non-overlapping object patches")
     args = parser.parse_args()
 
     # default hyper-parameters
@@ -664,6 +676,7 @@ if __name__ == "__main__":
         warmup_epoch = 0
         anchor_s = 0.125
         kl_balance = 0.001
+        exclusive_patches = False
     elif args.dataset == 'traffic':
         beta_kl = 30.0
         beta_rec = 1.0
@@ -681,6 +694,7 @@ if __name__ == "__main__":
         warmup_epoch = 2
         anchor_s = 0.25
         kl_balance = 0.001
+        exclusive_patches = False
     elif args.dataset == 'clevrer':
         beta_kl = 40.0
         beta_rec = 1.0
@@ -698,6 +712,7 @@ if __name__ == "__main__":
         warmup_epoch = 1
         anchor_s = 0.25
         kl_balance = 0.001
+        exclusive_patches = False
     elif args.dataset == 'shapes':
         beta_kl = 0.01
         beta_rec = 1.0
@@ -715,6 +730,10 @@ if __name__ == "__main__":
         warmup_epoch = 2
         anchor_s = 0.25
         kl_balance = 0.001
+        exclusive_patches = True
+        # override manually
+        lr = 1e-3
+        batch_size = 32
     else:
         raise NotImplementedError("unrecognized dataset, please implement it and add it to the trian script")
 
@@ -739,6 +758,7 @@ if __name__ == "__main__":
         warmup_epoch = args.warmup_epoch
         anchor_s = args.anchor_s
         kl_balance = args.kl_balance
+        exclusive_patches = args.exclusive_patches
 
     model = train_dlp(ds=ds, batch_size=batch_size, lr=lr,
                       num_epochs=num_epochs, kp_activation=kp_activation,
@@ -748,7 +768,7 @@ if __name__ == "__main__":
                       recon_loss_type=recon_loss_type, patch_size=patch_size, topk=topk, n_kp_enc=n_kp_enc,
                       eval_epoch_freq=eval_epoch_freq, n_kp_prior=n_kp_prior, run_prefix=run_prefix,
                       mask_threshold=mask_threshold, use_tps=use_tps, use_pairs=use_pairs, anchor_s=anchor_s,
-                      use_object_enc=use_object_enc, use_object_dec=use_object_dec,
+                      use_object_enc=use_object_enc, use_object_dec=use_object_dec, exclusive_patches=exclusive_patches,
                       warmup_epoch=warmup_epoch, learn_order=learn_order, kl_balance=kl_balance)
 
     # for b_kl in [40.0, 80.0, 100.0, 200.0]:

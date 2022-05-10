@@ -806,7 +806,7 @@ class ObjectEncoder(nn.Module):
         cropped_objects = centered_objects[:, :, :, w_start:w_end, h_start:h_end]
         return cropped_objects
 
-    def forward(self, x, kp, exclusive_patches=False):
+    def forward(self, x, kp, exclusive_patches=False, obj_on=None):
         # x: [bs, ch, image_size, image_size]
         # kp: [bs, n_kp, 2] in [-1, 1]
         # exclusive_objects: create cumulative masks to avoid overlapping objects, THIS WAS NOT USED IN THE PAPER
@@ -818,6 +818,8 @@ class ObjectEncoder(nn.Module):
         masks = create_masks_fast(kp.detach(), self.anchor_size, feature_dim=self.image_size)
         # [batch_size, n_kp, 1, feature_dim, feature_dim]
         if exclusive_patches:
+            if obj_on is not None:
+                masks = obj_on[:, :, None, None, None] * masks
             masks = masks.clamp(0, 1)  # STN can cause values to be outside [0, 1]
             # create cumulative masks to avoid overlapping objects
             curr_mask = masks[:, 0]

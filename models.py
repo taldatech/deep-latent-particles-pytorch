@@ -213,7 +213,6 @@ class KeyPointVAE(nn.Module):
         logvar_p = torch.log(torch.tensor(self.sigma ** 2, device=logvar.device))
         if self.use_object_dec:
             stats_aux = self.aux_enc(z_kp_v.detach())
-            # stats_aux = self.aux_enc(z_kp_v)
             if self.learn_order:
                 stats_aux = stats_aux.view(stats_aux.shape[0], self.n_kp_enc, 1 + self.n_kp_enc)
                 order_weights = stats_aux[:, :, 1:]
@@ -248,7 +247,7 @@ class KeyPointVAE(nn.Module):
         mu_features, logvar_features = torch.chunk(enc_out, chunks=2, dim=-1)  # [bs, n_kp + 1, learned_feature_dim]
         return mu_features, logvar_features
 
-    def encode_object_features_sep(self, x, kp, features_map, masks, exclusive_patches=False):
+    def encode_object_features_sep(self, x, kp, features_map, masks, exclusive_patches=False, obj_on=None):
         # x: [bs, ch, image_size, image_size]
         # kp :[bs, n_kp, 2]
         # features_map: [bs, n_kp, features_dim, features_dim]
@@ -257,7 +256,7 @@ class KeyPointVAE(nn.Module):
         batch_size, n_kp, features_dim, _ = masks.shape
 
         # object features
-        obj_enc_out = self.object_enc_sep(x, kp.detach(), exclusive_patches=exclusive_patches)
+        obj_enc_out = self.object_enc_sep(x, kp.detach(), exclusive_patches=exclusive_patches, obj_on=obj_on)
         mu_obj, logvar_obj, cropped_objects = obj_enc_out[0], obj_enc_out[1], obj_enc_out[2]
         if len(obj_enc_out) > 3:
             cropped_objects_masks = obj_enc_out[3]
@@ -299,7 +298,7 @@ class KeyPointVAE(nn.Module):
         if self.learned_feature_dim > 0:
             if self.use_object_enc:
                 feat_source = x if self.use_object_dec else kp_heatmap.detach()
-                obj_enc_out = self.encode_object_features_sep(feat_source, z[:, :-1], kp_heatmap.detach(),
+                obj_enc_out = self.encode_object_features_sep(feat_source, mu[:, :-1], kp_heatmap.detach(),
                                                               masks_sep.detach())
                 mu_features, logvar_features, cropped_objects = obj_enc_out[0], obj_enc_out[1], obj_enc_out[2]
             else:
@@ -404,8 +403,9 @@ class KeyPointVAE(nn.Module):
         a_obj, rgb_obj = torch.split(dec_objects_trans, [1, 3], dim=2)
 
         if not deterministic:
-            attn_mask = self.to_gauss_map(z_kp[:, :-1], a_obj.shape[-1], a_obj.shape[-1]).unsqueeze(
-                2).detach()
+            attn_mask = torch.where(a_obj > 0.1, 1.0, 0.0)
+            # attn_mask = self.to_gauss_map(z_kp[:, :-1], a_obj.shape[-1], a_obj.shape[-1]).unsqueeze(
+            #     2).detach()
             a_obj = a_obj + self.sigma * torch.randn_like(a_obj) * attn_mask
         return dec_objects, a_obj, rgb_obj
 
@@ -558,9 +558,14 @@ class KeyPointVAE(nn.Module):
         if self.learned_feature_dim > 0:
             if self.use_object_enc:
                 feat_source = x if self.use_object_dec else kp_heatmap.detach()
-                obj_enc_out = self.encode_object_features_sep(feat_source, z[:, :-1], kp_heatmap.detach(),
+                # obj_enc_out = self.encode_object_features_sep(feat_source, z[:, :-1], kp_heatmap.detach(),
+                #                                               masks_sep.detach(),
+                #                                               exclusive_patches=self.exclusive_patches)
+                obj_on_in = obj_on if not noisy_masks else 0.0 * obj_on + torch.rand_like(obj_on)
+                obj_enc_out = self.encode_object_features_sep(feat_source, mu[:, :-1], kp_heatmap.detach(),
                                                               masks_sep.detach(),
-                                                              exclusive_patches=self.exclusive_patches)
+                                                              exclusive_patches=self.exclusive_patches,
+                                                              obj_on=obj_on_in)
                 mu_features, logvar_features, cropped_objects = obj_enc_out[0], obj_enc_out[1], obj_enc_out[2]
                 if len(obj_enc_out) > 3:
                     cropped_objects_masks = obj_enc_out[3]
@@ -617,10 +622,11 @@ class KeyPointVAE(nn.Module):
         # decode object and translate them to the positions of the keypoints
         if z_features is not None and self.use_object_dec:
 
-            bern = torch.distributions.bernoulli.Bernoulli(probs=obj_on)
-            sample_obj_on = bern.sample()  # [batch_size, n_kp, 1]
-            sample_obj_on = sample_obj_on + obj_on - obj_on.detach()  # straight-through-gradient
-            obj_on_in = sample_obj_on if stg else obj_on
+            # bern = torch.distributions.bernoulli.Bernoulli(probs=obj_on)
+            # sample_obj_on = bern.sample()  # [batch_size, n_kp, 1]
+            # sample_obj_on = sample_obj_on + obj_on - obj_on.detach()  # straight-through-gradient
+            # obj_on_in = sample_obj_on if stg else obj_on
+            obj_on_in = obj_on if not noisy_masks else 0.0 * obj_on + torch.rand_like(obj_on)
             object_dec_out = self.decode_objects(z, z_features, obj_on_in, deterministic=not noisy_masks,
                                                  order_weights=order_weights, bg=rec)
             dec_objects, dec_objects_trans, rec = object_dec_out

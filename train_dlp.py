@@ -47,7 +47,7 @@ def train_dlp(ds="shapes", batch_size=16, lr=5e-4, device=torch.device("cpu"), k
               dec_bone="gauss_pointnetpp", patch_size=16, topk=15, n_kp_enc=20, eval_epoch_freq=5,
               learned_feature_dim=0, n_kp_prior=100, weight_decay=0.0, kp_range=(0, 1),
               run_prefix="", mask_threshold=0.2, use_tps=False, use_pairs=False, use_object_enc=True,
-              use_object_dec=False, warmup_epoch=5, iou_thresh=0.15, anchor_s=0.25, learn_order=False,
+              use_object_dec=False, warmup_epoch=5, iou_thresh=0.2, anchor_s=0.25, learn_order=False,
               kl_balance=0.1, exclusive_patches=False):
     """
     ds: dataset name (str)
@@ -132,7 +132,7 @@ def train_dlp(ds="shapes", batch_size=16, lr=5e-4, device=torch.device("cpu"), k
         enc_channels = [32, 64, 128]
         prior_channels = (16, 32, 64)
         print('generating random shapes dataset')
-        dataset = generate_shape_dataset_torch(num_images=20_000)
+        dataset = generate_shape_dataset_torch(num_images=40_000)
         milestones = (20, 50, 80)
     else:
         raise NotImplementedError
@@ -677,12 +677,12 @@ if __name__ == "__main__":
         kl_balance = 0.001
         exclusive_patches = False
     elif args.dataset == 'shapes':
-        beta_kl = 0.5
+        beta_kl = 0.1
         beta_rec = 1.0
         n_kp_enc = 8  # total kp to output from the encoder / filter from prior
         n_kp_prior = 15
         patch_size = 8
-        learned_feature_dim = 5  # additional features than x,y for each kp
+        learned_feature_dim = 6  # additional features than x,y for each kp
         dec_bone = "gauss_pointnetpp"
         topk = min(10, n_kp_enc)  # display top-10 kp with smallest variance
         recon_loss_type = "mse"
@@ -693,8 +693,10 @@ if __name__ == "__main__":
         warmup_epoch = 1
         anchor_s = 0.25
         kl_balance = 0.001
-        lr = 1e-3
         exclusive_patches = True
+        # override manually
+        lr = 1e-3
+        batch_size = 64
     else:
         raise NotImplementedError("unrecognized dataset, please implement it and add it to the train script")
 
