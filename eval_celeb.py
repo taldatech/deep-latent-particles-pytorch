@@ -34,7 +34,7 @@ if __name__ == '__main__':
     kl_balance = 0.001
     dropout = 0.0
     root = '/mnt/data/tal/celeba'
-    path_to_model_ckpt = '../checkpoints/dlp_celeba_gauss_pointnetpp_feat.pth'
+    path_to_model_ckpt = './checkpoints/dlp_celeba_gauss_pointnetpp_feat.pth'
 
     model = KeyPointVAE(cdim=ch, enc_channels=enc_channels, prior_channels=prior_channels,
                         image_size=image_size, n_kp=n_kp, learned_feature_dim=learned_feature_dim,

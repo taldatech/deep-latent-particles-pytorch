@@ -558,9 +558,6 @@ class KeyPointVAE(nn.Module):
         if self.learned_feature_dim > 0:
             if self.use_object_enc:
                 feat_source = x if self.use_object_dec else kp_heatmap.detach()
-                # obj_enc_out = self.encode_object_features_sep(feat_source, z[:, :-1], kp_heatmap.detach(),
-                #                                               masks_sep.detach(),
-                #                                               exclusive_patches=self.exclusive_patches)
                 obj_on_in = obj_on if not noisy_masks else 0.0 * obj_on + torch.rand_like(obj_on)
                 obj_enc_out = self.encode_object_features_sep(feat_source, mu[:, :-1], kp_heatmap.detach(),
                                                               masks_sep.detach(),
@@ -597,6 +594,7 @@ class KeyPointVAE(nn.Module):
                 else:
                     gmap_2 = self.pointnet(position=z.detach(), features=z.detach())
                 gmap = torch.cat([gmap_1[:, :-1], gmap_2], dim=1)
+                # gmap = torch.cat([gmap_2.detach(), gmap_2], dim=1)
             elif self.dec_bone == "gauss_pointnetpp_feat":
                 if self.learned_feature_dim > 0:
                     gmap_2 = self.pointnet(position=z.detach(),

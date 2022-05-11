@@ -11,7 +11,7 @@ Default hyper-parameters
 | celeb   | masked (gauss_pointnetpp_feat) |       30 |          50 | vgg           |      40 |      0.001 |          8 |    0.125 |                  10 |
 | traffic | object (gauss_pointnetpp)      |       15 |          20 | vgg           |      30 |      0.001 |         16 |     0.25 |                  20 |
 | clevrer | object (gauss_pointnetpp)      |       10 |          20 | vgg           |      40 |      0.001 |         16 |     0.25 |                   5 |
-| shapes  | object (gauss_pointnetpp)      |        8 |          15 | mse           |    0.01 |      0.001 |          8 |     0.25 |                   5 |
+| shapes  | object (gauss_pointnetpp)      |        8 |          15 | mse           |    0.1 |      0.001 |          8 |     0.25 |                   5 |
 +---------+--------------------------------+----------+-------------+---------------+---------+------------+------------+----------+---------------------+
 """
 # imports
@@ -151,7 +151,7 @@ def train_dlp(ds="celeba", batch_size=16, lr=5e-4, kp_activation="none",
         prior_channels = (16, 32, 64)
         print('generating random shapes dataset')
         dataset = generate_shape_dataset_torch(num_images=20_000)
-        milestones = (20, 50, 80)
+        milestones = (20, 40, 80)
     else:
         raise NotImplementedError
 
@@ -733,7 +733,7 @@ if __name__ == "__main__":
         exclusive_patches = True
         # override manually
         lr = 1e-3
-        batch_size = 32
+        batch_size = 64
     else:
         raise NotImplementedError("unrecognized dataset, please implement it and add it to the trian script")
 

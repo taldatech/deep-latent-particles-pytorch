@@ -236,8 +236,6 @@ def evaluate_lin_reg_on_mafl_topk(model, root="/mnt/data/tal/celeba", bias=False
     Evaluating on linear regression of keypoints. KP should be in the image scale and not normalized.
     """
     model.eval()  # put model in evaluation mode
-    # imwidth = 136
-    # crop = 4
     imwidth = 160
     crop = 16
     dataset = MAFLAligned(root, train=True, pair_warper=None, imwidth=imwidth, crop=crop,
@@ -314,7 +312,6 @@ def evaluate_lin_reg_on_mafl_topk(model, root="/mnt/data/tal/celeba", bias=False
 
     y_train = torch.cat(y_train, dim=0)
     y_train = y_train.data.cpu().numpy()
-    # print(f'train shape: x: {x_train.shape}, y: {y_train.shape}')
 
     # extract keypoints from model - test data
     x_test_mu = []
@@ -327,7 +324,6 @@ def evaluate_lin_reg_on_mafl_topk(model, root="/mnt/data/tal/celeba", bias=False
         gt_kp_t = gt_kp.clone()
         gt_kp_t[:, :, 0] = gt_kp[:, :, 1]  # change x-y
         gt_kp_t[:, :, 1] = gt_kp[:, :, 0]
-        # gt_kp_t = gt_kp_t.view(gt_kp_t.shape[0], -1)
         y_test.append(gt_kp_t)
         with torch.no_grad():
             if normalize is not None:

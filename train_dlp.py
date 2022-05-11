@@ -7,7 +7,7 @@ Default hyper-parameters
 | celeb   | masked (gauss_pointnetpp_feat) |       30 |          50 | vgg           |      40 |      0.001 |          8 |    0.125 |                  10 |
 | traffic | object (gauss_pointnetpp)      |       15 |          20 | vgg           |      30 |      0.001 |         16 |     0.25 |                  20 |
 | clevrer | object (gauss_pointnetpp)      |       10 |          20 | vgg           |      40 |      0.001 |         16 |     0.25 |                   5 |
-| shapes  | object (gauss_pointnetpp)      |        8 |          15 | mse           |    0.01 |      0.001 |          8 |     0.25 |                   5 |
+| shapes  | object (gauss_pointnetpp)      |        8 |          15 | mse           |    0.1 |      0.001 |          8 |     0.25 |                   5 |
 +---------+--------------------------------+----------+-------------+---------------+---------+------------+------------+----------+---------------------+
 """
 # imports
@@ -133,7 +133,7 @@ def train_dlp(ds="shapes", batch_size=16, lr=5e-4, device=torch.device("cpu"), k
         prior_channels = (16, 32, 64)
         print('generating random shapes dataset')
         dataset = generate_shape_dataset_torch(num_images=40_000)
-        milestones = (20, 50, 80)
+        milestones = (20, 40, 80)
     else:
         raise NotImplementedError
 
@@ -677,9 +677,9 @@ if __name__ == "__main__":
         kl_balance = 0.001
         exclusive_patches = False
     elif args.dataset == 'shapes':
-        beta_kl = 0.1
+        beta_kl = 0.05
         beta_rec = 1.0
-        n_kp_enc = 8  # total kp to output from the encoder / filter from prior
+        n_kp_enc = 10  # total kp to output from the encoder / filter from prior
         n_kp_prior = 15
         patch_size = 8
         learned_feature_dim = 6  # additional features than x,y for each kp
