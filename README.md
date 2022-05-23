@@ -1,10 +1,10 @@
 # deep-latent-particles-pytorch
 
-Official PyTorch implementation of the paper "Unsupervised Image Representation Learning with Deep Latent Particles"
+[ICML 2022] Official PyTorch implementation of the paper "Unsupervised Image Representation Learning with Deep Latent Particles"
 
 <h1 align="center">
   <br>
-	Paper Title
+	[ICML 2022] Unsupervised Image Representation Learning with Deep Latent Particles
   <br>
 </h1>
   <p align="center">
@@ -14,22 +14,22 @@ Official PyTorch implementation of the paper "Unsupervised Image Representation 
   </p>
 <h4 align="center">Official repository of the paper</h4>
 
-<h4 align="center">Venue</h4>
+<h4 align="center">ICML 2022</h4>
 
-<h4 align="center"><a href="https://taldatech.github.io/">Project Website</a> • <a href="">Video</a></h4>
+<h4 align="center"><a href="https://taldatech.github.io/deep-latent-particles-web/">Project Website</a> • <a href="">Video</a></h4>
 
 <h4 align="center">
-    <a href="https://colab.research.google.com/github/taldatech/soft-intro-vae-pytorch"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+    <a href="https://colab.research.google.com/github/taldatech/deep-latent-particles-pytorch"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 </h4>
 
 
 <p align="center">
-  <img src="https://github.com/taldatech/soft-intro-vae-web/raw/main/assets/ffhq_samples.png" height="120">
-  <img src="https://raw.githubusercontent.com/taldatech/soft-intro-vae-web/main/assets/celebahq_recons.png" height="120">
+  <img src="https://raw.githubusercontent.com/taldatech/deep-latent-particles-web/main/assets/celeb_manip_2.gif" height="120">
+  <img src="https://raw.githubusercontent.com/taldatech/deep-latent-particles-web/main/assets/tarffic_manip.gif" height="120">
 </p>
 <p align="center">
-  <img src="https://github.com/taldatech/soft-intro-vae-web/raw/main/assets/3d_plane_to_car.gif" height="100">
-  <img src="https://raw.githubusercontent.com/taldatech/soft-intro-vae-web/main/assets/density_plot_png_f.PNG" height="100">
+  <img src="https://raw.githubusercontent.com/taldatech/deep-latent-particles-web/main/assets/clevrer_manip_1.gif" height="120">
+  <img src="https://raw.githubusercontent.com/taldatech/deep-latent-particles-web/main/assets/clevrer_manip_2.gif" height="120">
 </p>
 
 # Deep Latent Particles
@@ -37,43 +37,47 @@ Official PyTorch implementation of the paper "Unsupervised Image Representation 
 > **Unsupervised Image Representation Learning with Deep Latent Particles**<br>
 > Tal Daniel, Aviv Tamar<br>
 >
-> **Abstract:** *The recently introduced introspective variational autoencoder (IntroVAE) exhibits outstanding image
-generations, and allows for amortized inference using an image encoder. The main idea in IntroVAE is to train a VAE
-adversarially, using the VAE encoder to discriminate between generated and real data samples. However, the original
-IntroVAE loss function relied on a particular hinge-loss formulation that is very hard to stabilize in practice, and its
-theoretical convergence analysis ignored important terms in the loss. In this work, we take a step towards better
-understanding of the IntroVAE model, its practical implementation, and its applications. We propose the Soft-IntroVAE, a
-modified IntroVAE that replaces the hinge-loss terms with a smooth exponential loss on generated samples. This change
-significantly improves training stability, and also enables theoretical analysis of the complete algorithm.
-Interestingly, we show that the IntroVAE converges to a distribution that minimizes a sum of KL distance from the data
-distribution and an entropy term. We discuss the implications of this result, and demonstrate that it induces
-competitive image generation and reconstruction. Finally, we describe two applications of Soft-IntroVAE to unsupervised
-image translation and out-of-distribution detection, and demonstrate compelling results.*
+> **Abstract:** *We propose a new representation of visual data that disentangles object position from appearance.
+> Our method, termed Deep Latent Particles (DLP), decomposes the visual input into low-dimensional latent ``particles'', 
+> where each particle is described by its spatial location and features of its surrounding region.
+> To drive learning of such representations, we follow a VAE-based approach and introduce a prior for particle positions
+> based on a spatial-softmax architecture, and a modification of the evidence lower bound loss
+> inspired by the Chamfer distance between particles. We demonstrate that our DLP representations are useful for
+> downstream tasks such as unsupervised keypoint (KP) detection, image manipulation, and video prediction for scenes
+> composed of multiple dynamic objects. In addition, we show that our probabilistic interpretation of the problem
+> naturally provides uncertainty estimates for particle locations, which can be used for model selection,
+> among other tasks.*
 
 ## Citation
 
-Daniel, Tal, and Aviv Tamar. "Soft-IntroVAE: Analyzing and Improving the Introspective Variational Autoencoder." arXiv
-preprint arXiv:2012.13253 (2020).
+Daniel, Tal, and Aviv Tamar. "Unsupervised Image Representation Learning with Deep Latent Particles." arXiv
+preprint arXiv:??? (2022).
 >
 
-    @InProceedings{Daniel_2021_CVPR,
+    @InProceedings{Daniel_2022_ICML,
     author    = {Daniel, Tal and Tamar, Aviv},
-    title     = {Soft-IntroVAE: Analyzing and Improving the Introspective Variational Autoencoder},
-    booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
-    month     = {June},
-    year      = {2021},
-    pages     = {4391-4400}
+    title     = {Unsupervised Image Representation Learning with Deep Latent Particles},
+    booktitle = {Proceedings of the 39th International Conference on Machine Learning (ICML)},
+    month     = {July},
+    year      = {2022},
+    pages     = {}
 
 }
 
 <h4 align="center">Preprint on ArXiv: <a href="https://arxiv.org/abs/2012.13253">Soon</a></h4>
 
-- [soft-intro-vae-pytorch](#soft-intro-vae-pytorch)
-- [Soft-IntroVAE](#soft-introvae)
-    * [Citation](#citation)
-    * [Prerequisites](#prerequisites)
-    * [Repository Organization](#repository-organization)
-    * [Credits](#credits)
+- [deep-latent-particles-pytorch](#deep-latent-particles-pytorch)
+- [Deep Latent Particles](#deep-latent-particles)
+  * [Citation](#citation)
+  * [Prerequisites](#prerequisites)
+  * [Pretrained Models](#pretrained-models)
+  * [Interactive Demo](#interactive-demo)
+  * [Datasets](#datasets)
+  * [Training](#training)
+  * [Evaluation of Unsupervised Keypoint Regression on CelebA](#evaluation-of-unsupervised-keypoint-regression-on-celeba)
+  * [Recommended Hyper-parameters](#recommended-hyper-parameters)
+  * [Repository Organization](#repository-organization)
+  * [Credits](#credits)
 
 ## Prerequisites
 
