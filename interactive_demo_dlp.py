@@ -20,7 +20,7 @@ matplotlib.use('Qt5Agg')
 
 
 def update_from_slider(val):
-    for i in np.arange(N):
+    for i in np.arange(N - 1):
         yvals[i] = sliders_y[i].val
         # xvals[i] = sliders_x[i].val
         if learned_feature_dim > 0:
@@ -36,7 +36,7 @@ def update(val):
     if learned_feature_dim > 0:
         global feature_1_vals
     # update curve
-    for i in np.arange(N):
+    for i in np.arange(N - 1):
         if learned_feature_dim > 0:
             # print(f'{i}: {feature_1_vals[i]}')
             feature_1_vals[i] = sliders_features[i].val
@@ -45,6 +45,7 @@ def update(val):
     # convert to tensors
     new_mu = torch.from_numpy(np.stack([yvals, xvals], axis=-1)).unsqueeze(0).to(device) / (image_size - 1)  # [0, 1]
     new_mu = new_mu * (kp_range[1] - kp_range[0]) + kp_range[0]  # [kp_range[0], kp_range[1]]
+    new_mu = torch.cat([new_mu, original_mu[:, -1].unsqueeze(1)], dim=1)
     delta_mu = new_mu - original_mu
     # print(f'delta_mu: {delta_mu}')
     if learned_feature_dim > 0:
@@ -70,13 +71,13 @@ def reset(event):
     if learned_feature_dim > 0:
         global feature_1_vals
     # reset the values
-    xvals = mu[0, :, 1].data.cpu().numpy() * (image_size - 1)
-    yvals = mu[0, :, 0].data.cpu().numpy() * (image_size - 1)
+    xvals = mu[0, :-1, 1].data.cpu().numpy() * (image_size - 1)
+    yvals = mu[0, :-1, 0].data.cpu().numpy() * (image_size - 1)
     if learned_feature_dim > 0:
         # a slider for the last feature dimension
         # feature_1_vals = mu_features[0, :, 0].data.cpu().numpy()
         feature_1_vals = mu_features[0, :, -1].data.cpu().numpy()
-    for i in np.arange(N):
+    for i in np.arange(N - 1):
         sliders_y[i].reset()
         if learned_feature_dim > 0:
             sliders_features[i].reset()
@@ -208,6 +209,7 @@ if __name__ == '__main__':
         patch_size = 8
         anchor_s = 0.125
         dec_bone = "gauss_pointnetpp_feat"
+        exclusive_patches = False
     elif ds == 'traffic':
         path_to_model_ckpt = './checkpoints/dlp_traffic_gauss_pointnetpp.pth'
         image_size = 128
@@ -224,8 +226,9 @@ if __name__ == '__main__':
         patch_size = 16
         anchor_s = 0.25
         dec_bone = "gauss_pointnetpp"
+        exclusive_patches = False
     elif ds == 'clevrer':
-        path_to_model_ckpt = './checkpoints/dlp_clevrer_gauss_pointnetpp.pth'
+        path_to_model_ckpt = './checkpoints/dlp_clevrer_gauss_pointnetpp_orig.pth'
         image_size = 128
         ch = 3
         enc_channels = [32, 64, 128, 256]
@@ -237,9 +240,11 @@ if __name__ == '__main__':
         use_object_enc = True
         use_object_dec = True
         learned_feature_dim = 5
+        # learned_feature_dim = 8
         patch_size = 16
         anchor_s = 0.25
         dec_bone = "gauss_pointnetpp"
+        exclusive_patches = False
     else:
         raise NotImplementedError
 
@@ -249,11 +254,13 @@ if __name__ == '__main__':
                         dropout=dropout, dec_bone=dec_bone, patch_size=patch_size, n_kp_enc=n_kp_enc,
                         n_kp_prior=n_kp_prior, kp_range=kp_range, kp_activation=kp_activation,
                         mask_threshold=mask_threshold, use_object_enc=use_object_enc,
-                        use_object_dec=use_object_dec, anchor_s=anchor_s, learn_order=learn_order).to(device)
+                        exclusive_patches=exclusive_patches, use_object_dec=use_object_dec, anchor_s=anchor_s,
+                        learn_order=learn_order).to(device)
     model.load_state_dict(torch.load(path_to_model_ckpt, map_location=device), strict=False)
     model.eval()
     print("loaded model from checkpoint")
-    if ds == 'celeb':
+    logvar_threshold = 0.0  # threshold to filter particles
+    if ds == 'celeba':
         # load image
         path_to_images = ['./checkpoints/sample_images/celeb/1.jpg', './checkpoints/sample_images/celeb/2.jpg',
                           './checkpoints/sample_images/celeb/3.jpg', './checkpoints/sample_images/celeb/4.jpg',
@@ -272,7 +279,7 @@ if __name__ == '__main__':
             data = data[:, crop:-crop, crop:-crop]
         data = data.unsqueeze(0).to(device)
     elif ds == 'traffic':
-        path_to_images = ['./checkpoints/sample_images/traffic/1.png',]
+        path_to_images = ['./checkpoints/sample_images/traffic/1.png', ]
         image_idx = min(image_idx, len(path_to_images) - 1)
         path_to_image = path_to_images[image_idx]
         im = Image.open(path_to_image)
@@ -283,8 +290,10 @@ if __name__ == '__main__':
         data = trans(im)
         data = data.unsqueeze(0).to(device)
         x = data
+        logvar_threshold = 14.0  # threshold to filter particles
     elif ds == 'clevrer':
-        path_to_images = ['./checkpoints/sample_images/clevrer/1.png',]
+        path_to_images = ['./checkpoints/sample_images/clevrer/1.png',
+                          './checkpoints/sample_images/clevrer/2.png']
         image_idx = min(image_idx, len(path_to_images) - 1)
         path_to_image = path_to_images[image_idx]
         im = Image.open(path_to_image)
@@ -294,6 +303,7 @@ if __name__ == '__main__':
         data = trans(im)
         data = data.unsqueeze(0).to(device)
         x = data
+        logvar_threshold = 13.0  # threshold to filter particles
     else:
         raise NotImplementedError
 
@@ -308,23 +318,25 @@ if __name__ == '__main__':
             z = reparameterize(mu, logvar)
             z_features = reparameterize(mu_features, logvar_features)
 
-        if learn_order:
-            order_of_kp = [torch.argmax(order_weights[0][i]).item() for i in range(order_weights.shape[-1])]
-            print(f'order of kp: {order_of_kp}')
-        if obj_on is not None:
-            print(f'obj_on: {obj_on[0].data.cpu()}')
-
-        rec, _, _ = model.decode_all(z, z_features, kp_heatmap, obj_on, deterministic=deterministic,
-                                     order_weights=order_weights)
-        rec = rec.clamp(0, 1)
-
-    # top-k
-    with torch.no_grad():
+        # top-k
         logvar_sum = logvar.sum(-1)
         logvar_topk = torch.topk(logvar_sum, k=5, dim=-1, largest=False)
         indices = logvar_topk[1]  # [batch_size, topk]
         batch_indices = torch.arange(mu.shape[0]).view(-1, 1).to(mu.device)
         topk_kp = mu[batch_indices, indices]
+        print(f'logvar: {logvar_sum[0].data.cpu()}')
+
+        if learn_order:
+            order_of_kp = [torch.argmax(order_weights[0][i]).item() for i in range(order_weights.shape[-1])]
+            print(f'order of kp: {order_of_kp}')
+        if obj_on is not None:
+            obj_on = torch.where((torch.abs(logvar_sum[:, :-1]) > logvar_threshold), obj_on,
+                                 torch.tensor(0.0, dtype=torch.float, device=obj_on.device))
+            print(f'obj_on: {obj_on[0].data.cpu()}')
+
+        rec, _, _ = model.decode_all(z, z_features, kp_heatmap, obj_on, deterministic=deterministic,
+                                     order_weights=order_weights)
+        rec = rec.clamp(0, 1)
 
     N = mu.shape[1]
     xmin = 0
@@ -335,8 +347,8 @@ if __name__ == '__main__':
     mu = mu.clamp(kp_range[0], kp_range[1])
     original_mu = mu.clone()
     mu = (mu - kp_range[0]) / (kp_range[1] - kp_range[0])
-    xvals = mu[0, :, 1].data.cpu().numpy() * (image_size - 1)
-    yvals = mu[0, :, 0].data.cpu().numpy() * (image_size - 1)
+    xvals = mu[0, :-1, 1].data.cpu().numpy() * (image_size - 1)
+    yvals = mu[0, :-1, 0].data.cpu().numpy() * (image_size - 1)
     if learned_feature_dim > 0:
         # feature_1_vals = mu_features[0, :, 0].data.cpu().numpy()
         feature_1_vals = mu_features[0, :, -1].data.cpu().numpy()
@@ -389,7 +401,7 @@ if __name__ == '__main__':
     if learned_feature_dim > 0:
         sliders_features = []
 
-    for i in np.arange(N):
+    for i in np.arange(N - 1):
         slider_width = 0.04 if learned_feature_dim > 0 else 0.12
         axamp = plt.axes([0.84, 0.85 - (i * 0.025), slider_width, 0.01])
         # Slider y
@@ -400,7 +412,7 @@ if __name__ == '__main__':
             s_feat = Slider(axamp_f, f'f_1', -5, 5, valinit=feature_1_vals[i])
             sliders_features.append(s_feat)
 
-    for i in np.arange(N):
+    for i in np.arange(N - 1):
         sliders_y[i].on_changed(update_from_slider)
         if learned_feature_dim > 0:
             sliders_features[i].on_changed(update_from_slider)
