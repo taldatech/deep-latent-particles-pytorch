@@ -84,8 +84,8 @@ preprint arXiv:??? (2022).
 * For your convenience, we provide an `environemnt.yml` file which installs the required packages in a `conda`
   environment named `torch`. Alternatively, you can use `pip` to install `requirements.txt`.
     * Use the terminal or an Anaconda Prompt and run the following command `conda env create -f environment.yml`.
-    * For PyTorch 1.7 + CUDA 10.2: `environemnt17.yml`, `requirements17.txt`
-    * For PyTorch 1.9 + CUDA 11.1: `environemnt19.yml`, `requirements19.txt`
+    * For PyTorch 1.7 + CUDA 10.2: `environment17.yml`, `requirements17.txt`
+    * For PyTorch 1.9 + CUDA 11.1: `environment19.yml`, `requirements19.txt`
 
 | Library           | Version          |
 |-------------------|------------------|
