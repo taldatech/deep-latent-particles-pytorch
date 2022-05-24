@@ -241,7 +241,8 @@ and then use `python eval_celeb.py` to calculate and print the normalized error 
 | `train_dlp.py`             | training function of DLP for single-GPU machines                                                                                           |
 | `train_dlp_accelerate.py`  | training function of DLP for multi-GPU machines                                                                                            |
 | `interactive_demo_dlp.py`  | `matplotlib`-based interactive demo to plot and interact with learned particles                                                            |
-| `environment.yml`          | Anaconda environment file to install the required dependencies                                                                             |
+| `environment17/19.yml`     | Anaconda environment file to install the required dependencies                                                                             |
+| `requirements17/19.txt`    | requirements file for `pip`                                                                                                                |
 | `accel_conf.json`          | configuration file for `accelerate` to run training on multiple GPUs                                                                       |
 
 ## Credits
