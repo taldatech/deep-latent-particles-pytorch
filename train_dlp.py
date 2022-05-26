@@ -85,7 +85,7 @@ def train_dlp(ds="shapes", batch_size=16, lr=5e-4, device=torch.device("cpu"), k
     """
 
     # load data
-    if ds == "celeba":
+    if ds == "celebaa":
         image_size = 128
         imwidth = 160
         crop = 16

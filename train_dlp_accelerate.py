@@ -105,7 +105,7 @@ def train_dlp(ds="celeba", batch_size=16, lr=5e-4, kp_activation="none",
         enc_channels = [32, 64, 128, 256]
         # prior_channels = (16, 16, 32)
         prior_channels = (16, 32, 64)
-        root = '/mnt/data/tal/celeba'
+        root = '/mnt/data/tal/celebaa'
         if use_tps:
             import tps
             # warper = tps.WarperSingle(H=imwidth, W=imwidth)
