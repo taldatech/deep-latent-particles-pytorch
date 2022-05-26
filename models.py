@@ -619,11 +619,6 @@ class KeyPointVAE(nn.Module):
 
         # decode object and translate them to the positions of the keypoints
         if z_features is not None and self.use_object_dec:
-
-            # bern = torch.distributions.bernoulli.Bernoulli(probs=obj_on)
-            # sample_obj_on = bern.sample()  # [batch_size, n_kp, 1]
-            # sample_obj_on = sample_obj_on + obj_on - obj_on.detach()  # straight-through-gradient
-            # obj_on_in = sample_obj_on if stg else obj_on
             obj_on_in = obj_on if not noisy_masks else 0.0 * obj_on + torch.rand_like(obj_on)
             object_dec_out = self.decode_objects(z, z_features, obj_on_in, deterministic=not noisy_masks,
                                                  order_weights=order_weights, bg=rec)
