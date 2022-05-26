@@ -49,3 +49,8 @@ if __name__ == '__main__':
     print('evaluating linear regression')
     result = evaluate_lin_reg_on_mafl_topk(model, root=root, batch_size=100, device=device, topk=topk)
     print(result)
+    print(f"all kp (mu) err: {result['mu_err'] * 100}%")
+    print(f"top-10 confident kp err: {result['mu_confident_err'] * 100}%")
+    print(f"top-10 uncertain kp err: {result['mu_uncertainty_err'] * 100}%")
+    print(f"all kp with logvar err: {result['logvar_err'] * 100}%")
+    print(f"all kp with logvar and features err: {result['feat_err'] * 100}%")
