@@ -101,14 +101,11 @@ def train_dlp(ds="celeba", batch_size=16, lr=5e-4, kp_activation="none",
         imwidth = 160
         crop = 16
         ch = 3
-        # enc_channels = [64, 128, 256, 512]
         enc_channels = [32, 64, 128, 256]
-        # prior_channels = (16, 16, 32)
         prior_channels = (16, 32, 64)
         root = '/mnt/data/tal/celebaa'
         if use_tps:
-            import tps
-            # warper = tps.WarperSingle(H=imwidth, W=imwidth)
+            import utils.tps as tps
             if use_pairs:
                 warper = tps.Warper(H=imwidth, W=imwidth, im1_multiplier=0.1, im1_multiplier_aff=0.1)
             else:
@@ -119,14 +116,11 @@ def train_dlp(ds="celeba", batch_size=16, lr=5e-4, kp_activation="none",
             warper = None
         dataset = CelebAPrunedAligned_MAFLVal(root=root, train=True, do_augmentations=False, imwidth=imwidth, crop=crop,
                                               pair_warper=warper)
-        # milestones = (30, 60, 90, 120)
         milestones = (50, 80, 100)
     elif ds == "traffic":
         image_size = 128
         ch = 3
-        # enc_channels = [64, 128, 256, 512]
         enc_channels = [32, 64, 128, 256]
-        # prior_channels = (16, 16, 32)
         prior_channels = (16, 32, 64)
         root = '/mnt/data/tal/traffic_dataset/img128np_fs3.npy'
         mode = 'single'
@@ -135,9 +129,7 @@ def train_dlp(ds="celeba", batch_size=16, lr=5e-4, kp_activation="none",
     elif ds == 'clevrer':
         image_size = 128
         ch = 3
-        # enc_channels = [64, 128, 256, 512]
         enc_channels = [32, 64, 128, 256]
-        # prior_channels = (16, 16, 32)
         prior_channels = (16, 32, 64)
         root = '/mnt/data/tal/clevrer/clevrer_img128np_fs3_train.npy'
         # root = '/media/newhd/data/clevrer/valid/clevrer_img128np_fs3_valid.npy'
