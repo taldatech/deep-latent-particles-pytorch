@@ -343,44 +343,6 @@ def plot_bb_on_image_batch_from_masks(mask_batch_tensor, img_batch_tensor, thick
     return img_with_bb
 
 
-# def plot_masks_single(masks):
-#     # masks: [n_kp + 1, image_size, image_size]
-#     num_colors = masks.shape[0]
-#     masks = masks.argmax(0)
-#     palette = torch.tensor([2 ** 21 - 1, 2 ** 15 - 1, 2 ** 20 - 1])
-#     colors = torch.as_tensor([i for i in range(num_colors)])[:, None] * palette
-#     colors = (colors % 255).numpy().astype("uint8")
-#
-#     # cmap = color_map()
-#     # colors = cmap[:num_colors].astype(int)
-#
-#     # plot the semantic segmentation predictions of n_kp + 1 classes in each color
-#     r = Image.fromarray(masks.byte().cpu().numpy())
-#     r.putpalette(colors)
-#     r = r.convert("RGB")
-#     r_t = transforms.ToTensor()(r)
-#     # r_t = r_t.repeat(3, 1, 1)
-#     # fig = plt.figure(figsize=(15, 15))
-#     # ax = fig.add_subplot(111)
-#     # ax.imshow(r_t.permute(1, 2, 0).data.cpu().numpy())
-#     # ax.set_axis_off()
-#     # plt.show()
-#     # r_t = transforms.ToTensor()(r)
-#     return r_t
-#
-#
-# def plot_masks_batch(masks_batch, max_imgs=8):
-#     # mask_batch_tensor: [batch_size, n_kp + 1, 1, feature_dim, feature_dim]
-#     masks_batch = masks_batch.squeeze(dim=2)
-#     num_plot = min(max_imgs, masks_batch.shape[0])
-#     img_with_mask = []
-#     for i in range(num_plot):
-#         img_tensor = plot_masks_single(masks_batch[i])
-#         img_with_mask.append(img_tensor)
-#     img_with_mask = torch.stack(img_with_mask, dim=0)
-#     return img_with_mask
-
-
 def prepare_logdir(runname, src_dir='./'):
     """
     Prepare the log directory in which checkpoints, plots and stats will be saved.
@@ -407,16 +369,3 @@ def log_line(src_dir, line):
     log_file = os.path.join(src_dir, 'log.txt')
     with open(log_file, 'a') as fp:
         fp.writelines(line)
-
-
-# def animate_trajectories(orig_trajectory, pred_trajectory, path='./traj_anim.gif'):
-#     # creates a side-by-side animation of frames for video prediction
-#     total_images = []
-#     for i in range(len(orig_trajectory)):
-#         concat_img = np.concatenate([orig_trajectory[i],
-#                                      np.ones((orig_trajectory[i].shape[0], 4, orig_trajectory[i].shape[-1])),
-#                                      pred_trajectory[i].clip(0, 1)], axis=1)
-#         total_images.append((concat_img * 255).astype(np.uint8))
-#     imageio.mimsave(path, total_images, duration=2 / 50)  # 1/50
-
-

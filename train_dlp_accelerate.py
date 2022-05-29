@@ -762,18 +762,3 @@ if __name__ == "__main__":
                       mask_threshold=mask_threshold, use_tps=use_tps, use_pairs=use_pairs, anchor_s=anchor_s,
                       use_object_enc=use_object_enc, use_object_dec=use_object_dec, exclusive_patches=exclusive_patches,
                       warmup_epoch=warmup_epoch, learn_order=learn_order, kl_balance=kl_balance)
-
-    # for b_kl in [40.0, 80.0, 100.0, 200.0]:
-    #     model = train_dlp(ds=ds, batch_size=batch_size, lr=lr,
-    #                                 num_epochs=num_epochs, kp_activation=kp_activation,
-    #                                 load_model=load_model, n_kp=n_kp, use_logsoftmax=use_logsoftmax, pad_mode=pad_mode,
-    #                                 sigma=sigma, beta_kl=b_kl, beta_rec=beta_rec, dropout=dropout, dec_bone=dec_bone,
-    #                                 kp_range=kp_range, learned_feature_dim=learned_feature_dim,
-    #                                 weight_decay=weight_decay,
-    #                                 recon_loss_type=recon_loss_type, patch_size=patch_size, topk=topk,
-    #                                 n_kp_enc=n_kp_enc,
-    #                                 eval_epoch_freq=eval_epoch_freq, n_kp_prior=n_kp_prior, run_prefix=run_prefix,
-    #                                 mask_threshold=mask_threshold, use_tps=use_tps, use_pairs=use_pairs,
-    #                                 anchor_s=anchor_s,
-    #                                 use_object_enc=use_object_enc, use_object_dec=use_object_dec,
-    #                                 warmup_epoch=warmup_epoch, learn_order=learn_order, kl_balance=kl_balance)

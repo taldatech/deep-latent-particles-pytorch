@@ -10,8 +10,7 @@ import torch.nn.functional as F
 import torch.nn as nn
 from utils.util_func import create_masks_fast
 # torch geometric
-from torch_geometric.nn import MessagePassing, global_max_pool, GCNConv, ResGatedGraphConv, radius_graph
-from torch_geometric.nn import knn_graph as knn_graph_nn
+from torch_geometric.nn import MessagePassing, global_max_pool
 from torch_cluster import knn_graph
 from torch_cluster import fps
 
@@ -97,51 +96,6 @@ class ConvBlock(nn.Module):
         return y
 
 
-# class KeyPointCNN(nn.Module):
-#     def __init__(self, cdim=3, channels=(64, 128, 256, 512, 512, 512), image_size=64, n_kp=8, pad_mode='zeros',
-#                  dropout=0.0, use_resblock=False):
-#         super(KeyPointCNN, self).__init__()
-#         self.dropout = dropout
-#         self.cdim = cdim
-#         self.image_size = image_size
-#         self.n_kp = n_kp
-#         cc = channels[0]
-#         ch = cc
-#         self.main = nn.Sequential()
-#         self.main.add_module(f'in_block',
-#                              ConvBlock(cdim, cc, kernel_size=3, stride=1, pad=1, pool=True, pad_mode=pad_mode,
-#                                        use_resblock=use_resblock))
-#
-#         sz = image_size
-#         for ch in channels[1:-1]:
-#             self.main.add_module('conv_in_{}'.format(sz), ConvBlock(cc, ch, kernel_size=3, stride=1, pad=1,
-#                                                                     pool=True, pad_mode=pad_mode,
-#                                                                     use_resblock=use_resblock))
-#             cc, sz = ch, sz // 2
-#
-#         self.main.add_module(f'dropout', nn.Dropout2d(p=dropout))
-#         self.main.add_module(f'last_conv', ConvBlock(ch, channels[-1], kernel_size=3, stride=1, pad=1, pool=False
-#                                                      , pad_mode=pad_mode, use_resblock=use_resblock))
-#         self.keymap = nn.Sequential(nn.Conv2d(channels[-1], n_kp, kernel_size=1),
-#                                     nn.LeakyReLU(0.01, inplace=True))
-#         self.conv_output_size = self.calc_conv_output_size()
-#         num_fc_features = torch.zeros(self.conv_output_size).view(-1).shape[0]
-#         print("conv shape: ", self.conv_output_size)
-#         # print("num fc features: ", num_fc_features)
-#         # self.fc = nn.Linear(num_fc_features, self.fc_output)
-#
-#     def calc_conv_output_size(self):
-#         dummy_input = torch.zeros(1, self.cdim, self.image_size, self.image_size)
-#         dummy_input = self.main(dummy_input)
-#         return dummy_input[0].shape
-#
-#     def forward(self, x):
-#         y = self.main(x)
-#         # heatmap
-#         hm = self.keymap(y)
-#         return y, hm
-
-
 class KeyPointCNNOriginal(nn.Module):
     """
     CNN to extract heatmaps, inspired by KeyNet (Jakab et.al)
@@ -192,169 +146,6 @@ class KeyPointCNNOriginal(nn.Module):
         # heatmap
         hm = self.keymap(y)
         return y, hm
-
-
-# class PointNetToCNN(nn.Module):
-#     def __init__(self, axis_dim=2, target_hw=16, n_kp=8, pad_mode='zeros'):
-#         super(PointNetToCNN, self).__init__()
-#
-#         self.axis_dim = axis_dim
-#         self.n_kp = n_kp
-#         self.pointnet = nn.Sequential(
-#             nn.Conv1d(in_channels=axis_dim, out_channels=64, kernel_size=1,
-#                       bias=False),
-#             nn.ReLU(inplace=True),
-#             nn.BatchNorm1d(64),
-#
-#             nn.Conv1d(in_channels=64, out_channels=128, kernel_size=1,
-#                       bias=False),
-#             nn.ReLU(inplace=True),
-#             nn.BatchNorm1d(128),
-#
-#             nn.Conv1d(in_channels=128, out_channels=256, kernel_size=1,
-#                       bias=False),
-#             nn.ReLU(inplace=True),
-#             nn.BatchNorm1d(256),
-#
-#             nn.Conv1d(in_channels=256, out_channels=512, kernel_size=1,
-#                       bias=False),
-#             nn.ReLU(inplace=True),
-#             nn.BatchNorm1d(512),
-#         )
-#
-#         fc_out_dim = self.n_kp * 4 * 4
-#         self.fc = nn.Sequential(nn.Linear(512, 256, bias=True),
-#                                 nn.ReLU(True),
-#                                 nn.Linear(256, 128),
-#                                 nn.ReLU(True),
-#                                 nn.Linear(128, fc_out_dim),
-#                                 nn.ReLU(True))
-#
-#         num_upsample = int(np.log(target_hw) // np.log(2)) - 2
-#         print(f'pointnet to cnn num upsample: {num_upsample}')
-#         self.cnn = nn.Sequential()
-#         for i in range(num_upsample):
-#             self.cnn.add_module(f'depth_up_{i}', ConvBlock(n_kp, n_kp, kernel_size=3, pad=1,
-#                                                            upsample=True, pad_mode=pad_mode))
-#
-#     def forward(self, x):
-#         # x [batch_size, n_kp, 2 or features_dim]
-#         x_in = x.transpose(2, 1)  # [batch_size, 2 or features_dim, n_kp]
-#         output = self.pointnet(x_in)
-#         output2 = output.max(dim=2)[0]
-#         lin_out = self.fc(output2)  # [batch_size, n_kp * 4 * 4]
-#         lin_out = lin_out.view(-1, self.n_kp, 4, 4)  # [batch_size, n_kp, 4, 4]
-#         cnn_out = self.cnn(lin_out)  # [batch_size, n_kp, target_hw, target_hw]
-#         return cnn_out
-#
-#
-# class STN(nn.Module):
-#     def __init__(self, axis_dim=2, n_kp=8):
-#         super(STN, self).__init__()
-#
-#         self.axis_dim = axis_dim
-#         self.n_kp = n_kp
-#         self.pointnet = nn.Sequential(
-#             nn.Conv1d(in_channels=axis_dim, out_channels=64, kernel_size=1,
-#                       bias=False),
-#             nn.ReLU(inplace=True),
-#             nn.BatchNorm1d(64),
-#
-#             nn.Conv1d(in_channels=64, out_channels=128, kernel_size=1,
-#                       bias=False),
-#             nn.ReLU(inplace=True),
-#             nn.BatchNorm1d(128),
-#
-#             nn.Conv1d(in_channels=128, out_channels=256, kernel_size=1,
-#                       bias=False),
-#             nn.ReLU(inplace=True),
-#             nn.BatchNorm1d(256),
-#
-#             nn.Conv1d(in_channels=256, out_channels=512, kernel_size=1,
-#                       bias=False),
-#             nn.ReLU(inplace=True),
-#             nn.BatchNorm1d(512),
-#         )
-#
-#         fc_out_dim = self.n_kp * axis_dim
-#         self.fc = nn.Sequential(nn.Linear(512, 256, bias=True),
-#                                 nn.ReLU(True),
-#                                 nn.Linear(256, 128),
-#                                 nn.ReLU(True),
-#                                 nn.Linear(128, fc_out_dim))
-#
-#     def forward(self, x):
-#         # x [batch_size, n_kp, 2]
-#         axis_dim = x.shape[-1]
-#         x_in = x.transpose(2, 1)  # [batch_size, 2, n_kp]
-#         output = self.pointnet(x_in)
-#         output2 = output.max(dim=2)[0]
-#         delta = self.fc(output2)  # [batch_size, n_kp * 2]
-#         delta = delta.view(-1, self.n_kp, axis_dim)  # [batch_size, n_kp, 2]
-#         x_new = x + delta
-#         return delta, x_new
-#
-#
-# class FCToCNN(nn.Module):
-#     def __init__(self, axis_dim=2, target_hw=16, n_kp=8, pad_mode='zeros'):
-#         super(FCToCNN, self).__init__()
-#
-#         self.axis_dim = axis_dim
-#         self.n_kp = n_kp
-#         fc_out_dim = self.n_kp * 4 * 4
-#         self.fc = nn.Sequential(nn.Linear(axis_dim * n_kp, 128, bias=True),
-#                                 nn.ReLU(True),
-#                                 nn.Linear(128, 256),
-#                                 nn.ReLU(True),
-#                                 nn.Linear(256, fc_out_dim),
-#                                 nn.ReLU(True))
-#
-#         num_upsample = int(np.log(target_hw) // np.log(4))
-#         print(f'fc to cnn num upsample: {num_upsample}')
-#         self.cnn = nn.Sequential()
-#         for i in range(num_upsample):
-#             self.cnn.add_module(f'depth_up_{i}', ConvBlock(n_kp, n_kp, kernel_size=3, pad=1,
-#                                                            upsample=True, pad_mode=pad_mode))
-#
-#     def forward(self, x):
-#         # x [batch_size, n_kp, 2 or features_dim]
-#         x = x.view(x.shape[0], -1)
-#         lin_out = self.fc(x)  # [batch_size, n_kp * 4 * 4]
-#         lin_out = lin_out.view(-1, self.n_kp, 4, 4)  # [batch_size, n_kp, 4, 4]
-#         cnn_out = self.cnn(lin_out)  # [batch_size, n_kp, target_hw, target_hw]
-#         return cnn_out
-#
-#
-# class PointNetToKP(nn.Module):
-#     def __init__(self, axis_dim=2, n_kp=8):
-#         super(PointNetToKP, self).__init__()
-#
-#         self.axis_dim = axis_dim
-#         self.n_kp = n_kp
-#         self.pointnet = nn.Sequential(
-#             nn.Conv1d(in_channels=axis_dim, out_channels=64, kernel_size=1,
-#                       bias=False),
-#             nn.ReLU(inplace=True),
-#             nn.BatchNorm1d(64),
-#
-#             nn.Conv1d(in_channels=64, out_channels=128, kernel_size=1,
-#                       bias=False),
-#             nn.ReLU(inplace=True),
-#             nn.BatchNorm1d(128),
-#         )
-#
-#         fc_out_dim = self.n_kp * self.axis_dim * 2  # [mu, logvar]
-#         self.fc = nn.Sequential(nn.Linear(128, fc_out_dim, bias=True))
-#
-#     def forward(self, x):
-#         # x [batch_size, n_kp, 2 or features_dim]
-#         x_in = x.transpose(2, 1)  # [batch_size, 2 or features_dim, n_kp]
-#         output = self.pointnet(x_in)
-#         output2 = output.max(dim=2)[0]
-#         lin_out = self.fc(output2)  # [batch_size, n_kp * axis_dim * 2]
-#         lin_out = lin_out.view(-1, self.n_kp, self.axis_dim * 2)  # [batch_size, n_kp, 2 * axis_dim]
-#         mu, logvar = torch.chunk(lin_out, 2, dim=-1)  # [batch_size, n_kp, axis_dim]
-#         return mu, logvar
 
 
 # coverting to probabilities
@@ -438,41 +229,6 @@ class SpatialLogSoftmaxKP(torch.nn.Module):
             return kp
 
 
-# class ToGaussianMap(nn.Module):
-#
-#     def __init__(self, sigma=0.1, eps=1e-6):
-#         super().__init__()
-#         self.sigma = sigma
-#         self.eps = eps
-#
-#     def forward(self, kp, height, width):
-#         batch_size, n_kp, _ = kp.shape
-#         # get means
-#         h_mean, w_mean = kp[:, :, 0], kp[:, :, 1]
-#         # create a coordinate map for each axis
-#         h_map = torch.linspace(0, 1, height, device=h_mean.device).type_as(h_mean)  # [height]
-#         w_map = torch.linspace(0, 1, width, device=w_mean.device).type_as(w_mean)  # [width]
-#         # duplicate for all keypoints in the batch
-#         h_map = h_map.expand(batch_size, n_kp, height)  # [batch_size, n_kp, height]
-#         w_map = w_map.expand(batch_size, n_kp, width)  # [batch_size, n_kp, width]
-#         # repeat the mean to match dimensions
-#         h_mean_m = h_mean.expand(height, -1, -1)  # [height, batch_size, n_kp]
-#         h_mean_m = h_mean_m.permute(1, 2, 0)  # [batch_size, n_kp, height]
-#         w_mean_m = w_mean.expand(width, -1, -1)  # [width, batch_size, n_kp]
-#         w_mean_m = w_mean_m.permute(1, 2, 0)  # [batch_size, n_kp, width]
-#         # for each pixel in the map, calculate the squared distance from the mean
-#         h_sdiff = (h_map - h_mean_m) ** 2  # [batch_size, n_kp, height]
-#         w_sdiff = (w_map - w_mean_m) ** 2  # [batch_size, n_kp, width]
-#         # compute gaussian
-#         # duplicate for the other dimension
-#         hm = h_sdiff.expand(width, -1, -1, -1).permute(1, 2, 3, 0)  # [batch_size, n_kp, height, width]
-#         wm = w_sdiff.expand(height, -1, -1, -1).permute(1, 2, 0, 3)  # [batch_size, n_kp, height, width]
-#         #         gm = - (hm + wm + self.eps).sqrt_() / (2 * self.sigma ** 2) # WHY sqrt?
-#         gm = - (hm + wm) / (2 * self.sigma ** 2)
-#         gm = torch.exp(gm)  # [batch_size, n_kp, height, width]
-#         return gm
-
-
 class ToGaussianMapHW(nn.Module):
     """
     This module converts KP to a gaussian map centered at the coordinates of the keypoint
@@ -508,8 +264,6 @@ class ToGaussianMapHW(nn.Module):
         # duplicate for the other dimension
         hm = h_sdiff.expand(width, -1, -1, -1).permute(1, 2, 3, 0)  # [batch_size, n_kp, height, width]
         wm = w_sdiff.expand(height, -1, -1, -1).permute(1, 2, 0, 3)  # [batch_size, n_kp, height, width]
-        #         gm = - (hm + wm + self.eps).sqrt_() / (2 * self.sigma ** 2) # WHY sqrt?
-        #         gm = - (hm + wm) / (2 * self.sigma ** 2)
         if logvar_h is not None:
             sigma_h = torch.exp(0.5 * logvar_h)
             sigma_h = sigma_h.expand(height, -1, -1)  # [height, batch_size, n_kp]
@@ -940,146 +694,6 @@ class PointNetPPLayer(MessagePassing):
             input_pos = torch.cat([h_j, input_pos], dim=-1)
 
         return self.mlp(input_pos)  # Apply our final MLP.
-
-
-# class PointNetPPVariational(nn.Module):
-#     def __init__(self, axis_dim=2, features_dim=2, with_fps=False, zdim=128):
-#         super(PointNetPPVariational, self).__init__()
-#         self.with_fps = with_fps
-#         self.zdim = zdim
-#         self.axis_dim = axis_dim  # mu or z
-#         self.features_dim = features_dim  # logvar
-#         self.conv1 = PointNetPPLayer(self.axis_dim + self.features_dim, 64, axis_dim=axis_dim)
-#         self.conv2 = PointNetPPLayer(64, 128, axis_dim=axis_dim)
-#         self.conv3 = PointNetPPLayer(128, 256, axis_dim=axis_dim)
-#         self.conv4 = PointNetPPLayer(256, 512, axis_dim=axis_dim)
-#         self.fc = nn.Sequential(nn.Linear(512, 256, bias=True),
-#                                 nn.ReLU(True),
-#                                 nn.Linear(256, 128),
-#                                 nn.ReLU(True),
-#                                 nn.Linear(128, self.zdim * 2))
-#
-#     def forward(self, features, pos, batch):
-#         # Compute the kNN graph:
-#         # Here, we need to pass the batch vector to the function call in order
-#         # to prevent creating edges between points of different examples.
-#         # We also add `loop=True` which will add self-loops to the graph in
-#         # order to preserve central point information.
-#         edge_index = knn_graph(pos, k=10, batch=batch, loop=True)
-#
-#         # 3. Start bipartite message passing.
-#         h = self.conv1(h=features, pos=pos, edge_index=edge_index)
-#         h = h.relu()
-#         #         print(f'conv1 h: {h.shape}')
-#         if self.with_fps:
-#             index = fps(pos, batch=batch, ratio=0.5)
-#             pos = pos[index]
-#             h = h[index]
-#             batch = batch[index]
-#             edge_index = knn_graph(pos, k=5, batch=batch, loop=True)
-#         h = self.conv2(h=h, pos=pos, edge_index=edge_index)
-#         h = h.relu()
-#         #         print(f'conv2 h: {h.shape}')
-#         if self.with_fps:
-#             index = fps(pos, batch=batch, ratio=0.5)
-#             pos = pos[index]
-#             h = h[index]
-#             batch = batch[index]
-#             edge_index = knn_graph(pos, k=3, batch=batch, loop=True)
-#         h = self.conv3(h=h, pos=pos, edge_index=edge_index)
-#         h = h.relu()
-#         #         print(f'conv3 h: {h.shape}')
-#         #         if self.with_fps:
-#         #             index = fps(pos, batch=batch, ratio=0.5)
-#         #             pos = pos[index]
-#         #             h = h[index]
-#         #             batch = batch[index]
-#         #             edge_index = knn_graph(pos, k=16, batch=batch, loop=True)
-#         h = self.conv4(h=h, pos=pos, edge_index=edge_index)
-#         h = h.relu()
-#         # print(f'conv4 h: {h.shape}')
-#         # 4. Global Pooling.
-#         h = global_max_pool(h, batch)  # [num_examples, hidden_channels]
-#         # print(f'maxpool h: {h.shape}')
-#         # 5. FC
-#         h = self.fc(h)
-#         mu, logvar = torch.chunk(h, chunks=2, dim=-1)
-#         return mu, logvar
-
-
-# class PointNetPPFC(nn.Module):
-#     def __init__(self, axis_dim=2, features_dim=2, with_fps=False, zdim=128):
-#         super(PointNetPPFC, self).__init__()
-#         self.with_fps = with_fps
-#         self.zdim = zdim
-#         self.axis_dim = axis_dim  # mu or z
-#         self.features_dim = features_dim  # logvar
-#         self.conv1 = PointNetPPLayer(self.axis_dim + self.features_dim, 64, axis_dim=axis_dim)
-#         self.conv2 = PointNetPPLayer(64, 128, axis_dim=axis_dim)
-#         self.conv3 = PointNetPPLayer(128, 256, axis_dim=axis_dim)
-#         self.conv4 = PointNetPPLayer(256, 512, axis_dim=axis_dim)
-#         # self.fc = nn.Sequential(nn.Linear(512, 256, bias=True),
-#         #                         nn.ReLU(True),
-#         #                         nn.Linear(256, 128),
-#         #                         nn.ReLU(True),
-#         #                         nn.Linear(128, self.zdim))
-#         self.fc = nn.Sequential(nn.Linear(512, 256, bias=True),
-#                                 nn.ReLU(inplace=True),
-#                                 nn.Linear(256, 128),
-#                                 nn.ReLU(inplace=True),
-#                                 nn.Linear(128, self.zdim))
-#
-#     def forward(self, position, features):
-#         # position [batch_size, n_kp, 2]
-#         # features [batch_size, n_kp, features_dim]
-#         pos = position
-#         batch = torch.arange(pos.shape[0]).view(-1, 1).repeat(1, pos.shape[1]).view(-1).to(pos.device)
-#         pos = pos.view(-1, pos.shape[-1])  # [batch_size * n_kp, 2]
-#         features = features.view(-1, features.shape[-1])  # [batch_size * n_kp, features]
-#         # Compute the kNN graph:
-#         # Here, we need to pass the batch vector to the function call in order
-#         # to prevent creating edges between points of different examples.
-#         # We also add `loop=True` which will add self-loops to the graph in
-#         # order to preserve central point information.
-#         edge_index = knn_graph(pos, k=10, batch=batch, loop=True)
-#
-#         # 3. Start bipartite message passing.
-#         h = self.conv1(h=features, pos=pos, edge_index=edge_index)
-#         h = h.relu()
-#         #         print(f'conv1 h: {h.shape}')
-#         if self.with_fps:
-#             index = fps(pos, batch=batch, ratio=0.5)
-#             pos = pos[index]
-#             h = h[index]
-#             batch = batch[index]
-#             edge_index = knn_graph(pos, k=5, batch=batch, loop=True)
-#         h = self.conv2(h=h, pos=pos, edge_index=edge_index)
-#         h = h.relu()
-#         #         print(f'conv2 h: {h.shape}')
-#         if self.with_fps:
-#             index = fps(pos, batch=batch, ratio=0.5)
-#             pos = pos[index]
-#             h = h[index]
-#             batch = batch[index]
-#             edge_index = knn_graph(pos, k=3, batch=batch, loop=True)
-#         h = self.conv3(h=h, pos=pos, edge_index=edge_index)
-#         h = h.relu()
-#         #         print(f'conv3 h: {h.shape}')
-#         #         if self.with_fps:
-#         #             index = fps(pos, batch=batch, ratio=0.5)
-#         #             pos = pos[index]
-#         #             h = h[index]
-#         #             batch = batch[index]
-#         #             edge_index = knn_graph(pos, k=16, batch=batch, loop=True)
-#         h = self.conv4(h=h, pos=pos, edge_index=edge_index)
-#         h = h.relu()
-#         # print(f'conv4 h: {h.shape}')
-#         # 4. Global Pooling.
-#         h = global_max_pool(h, batch)  # [num_examples, hidden_channels]
-#         # print(f'maxpool h: {h.shape}')
-#         # 5. FC
-#         h = self.fc(h)
-#         return h
 
 
 class PointNetPPToCNN(nn.Module):
