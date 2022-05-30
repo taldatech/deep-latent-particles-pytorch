@@ -227,23 +227,24 @@ and then use `python eval_celeb.py` to calculate and print the normalized error 
 
 ## Repository Organization
 
-| File name                  | Content                                                                                                                                    |
-|----------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
-| `/checkpoints`             | directory for pre-trained checkpoints and sample images for the interactive demo                                                           |
-| `/datasets`                | directory containing data loading classes for the various datasets                                                                         |
-| `/eval/eval_model.py`      | evaluation functions such as evaluating the ELBO                                                                                           |
-| `/modules/modules.py`      | basic neural network blocks used to implement the DLP model                                                                                |
-| `/utils/tps.py`            | implementation of the TPS augmentation used for training on CelebA                                                                         |
-| `/utils/loss_functions.py` | loss functions used to optimize the model such as Chamfer-KL and perceptual (VGG) loss                                                     |
-| `/utils/util_func.py`      | utility functions such as logging and plotting functions                                                                                   |
+| File name                  | Content                                                                                                                                     |
+|----------------------------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| `/checkpoints`             | directory for pre-trained checkpoints and sample images for the interactive demo                                                            |
+| `/datasets`                | directory containing data loading classes for the various datasets                                                                          |
+| `/eval/eval_model.py`      | evaluation functions such as evaluating the ELBO                                                                                            |
+| `/modules/modules.py`      | basic neural network blocks used to implement the DLP model                                                                                 |
+| `/utils/tps.py`            | implementation of the TPS augmentation used for training on CelebA                                                                          |
+| `/utils/loss_functions.py` | loss functions used to optimize the model such as Chamfer-KL and perceptual (VGG) loss                                                      |
+| `/utils/util_func.py`      | utility functions such as logging and plotting functions                                                                                    |
 | `eval_celeb.py`            | functions to evaluate the normalized error of keypoint linear regression with respect to intra-occular distance for the MAFL/CelebA dataset |
-| `models.py`                | implementation of the DLP model                                                                                                            |
-| `train_dlp.py`             | training function of DLP for single-GPU machines                                                                                           |
-| `train_dlp_accelerate.py`  | training function of DLP for multi-GPU machines                                                                                            |
-| `interactive_demo_dlp.py`  | `matplotlib`-based interactive demo to plot and interact with learned particles                                                            |
-| `environment17/19.yml`     | Anaconda environment file to install the required dependencies                                                                             |
-| `requirements17/19.txt`    | requirements file for `pip`                                                                                                                |
-| `accel_conf.json`          | configuration file for `accelerate` to run training on multiple GPUs                                                                       |
+| `models.py`                | implementation of the DLP model                                                                                                             |
+| `train_dlp.py`             | training function of DLP for single-GPU machines                                                                                            |
+| `train_dlp_accelerate.py`  | training function of DLP for multi-GPU machines                                                                                             |
+| `dlp_tutorial.ipynb`       | Jupyter Notebook tutorial for explaining and training DLP on the random shapes dataset                                                      |
+| `interactive_demo_dlp.py`  | `matplotlib`-based interactive demo to plot and interact with learned particles                                                             |
+| `environment17/19.yml`     | Anaconda environment file to install the required dependencies                                                                              |
+| `requirements17/19.txt`    | requirements file for `pip`                                                                                                                 |
+| `accel_conf.json`          | configuration file for `accelerate` to run training on multiple GPUs                                                                        |
 
 ## Credits
 
