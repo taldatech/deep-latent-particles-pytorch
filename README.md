@@ -50,11 +50,10 @@
 
 ## Citation
 
-Daniel, Tal, and Aviv Tamar. "Unsupervised Image Representation Learning with Deep Latent Particles." arXiv
-preprint arXiv:??? (2022).
+Daniel, Tal, and Aviv Tamar. "Unsupervised Image Representation Learning with Deep Latent Particles." Proceedings of the 39th International Conference on Machine Learning (ICML) 2022.
 >
 
-    @InProceedings{Daniel_2022_ICML,
+    @InProceedings{daniel22dlp_icml,
     author    = {Daniel, Tal and Tamar, Aviv},
     title     = {Unsupervised Image Representation Learning with Deep Latent Particles},
     booktitle = {Proceedings of the 39th International Conference on Machine Learning (ICML)},
@@ -64,7 +63,7 @@ preprint arXiv:??? (2022).
 
 }
 
-<h4 align="center">Preprint on ArXiv: <a href="https://arxiv.org/abs/2012.13253">Soon</a></h4>
+<h4 align="center">Paper on ArXiv: <a href="https://arxiv.org/abs/2205.15821">2205.15821</a></h4>
 
 - [deep-latent-particles-pytorch](#deep-latent-particles-pytorch)
 - [Deep Latent Particles](#deep-latent-particles)
