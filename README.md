@@ -61,7 +61,6 @@ Daniel, Tal, and Aviv Tamar. "Unsupervised Image Representation Learning with De
     year      = {2022},
     pages     = {}
 
-}
 
 <h4 align="center">Paper on ArXiv: <a href="https://arxiv.org/abs/2205.15821">2205.15821</a></h4>
 
@@ -183,7 +182,7 @@ You should run the `train_dlp.py` or `train_dlp_accelerate.py` files with the fo
 | --learned_feature_dim     | the latent visual features dimensions extracted from glimpses              | int: default=10                              |
 | --use_object_enc    | set True to use a separate encoder to encode visual features of glimpses              | bool: default=False                          |
 | --use_object_dec   | set True to use a separate decoder to decode glimpses (Object Model)            | bool: default=False                          |
-| --warmup_epoch  | number of epochs where only the object decoder is trained          | int: default=True                            |
+| --warmup_epoch  | number of epochs where only the object decoder is trained          | int: default=2                            |
 | --anchor_s  | defines the glimpse size as a ratio of image_size         | float: default=0.25                          |
 | --exclusive_patches  | set True to enable non-overlapping object patches        | bool: default=False                          |
 
