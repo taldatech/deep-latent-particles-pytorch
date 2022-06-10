@@ -275,7 +275,7 @@ def plot_bb_on_image_from_masks_nms(masks, image_tensor, scores, iou_thresh=0.5,
         thickness = 1
         box_w = bb_t[0] - bb_s[0]
         box_h = bb_t[1] - bb_s[1]
-        org = (int(bb_s[0] + box_w / 4), int(bb_s[1] + box_h / 2))
+        org = (int(bb_s[0] + box_w / 2), int(bb_s[1] + box_h / 2))
         cv2.putText(img, score_text, org, font, fontScale, thickness=thickness, color=c, lineType=cv2.LINE_AA)
         count += 1
 
