@@ -51,20 +51,17 @@
 ## Citation
 
 Daniel, Tal, and Aviv Tamar. "Unsupervised Image Representation Learning with Deep Latent Particles." Proceedings of the 39th International Conference on Machine Learning (ICML) 2022.
->
-
-@InProceedings{pmlr-v162-daniel22a,
-  title = 	 {Unsupervised Image Representation Learning with Deep Latent Particles},
-  author =       {Daniel, Tal and Tamar, Aviv},
-  booktitle = 	 {Proceedings of the 39th International Conference on Machine Learning},
-  pages = 	 {4644--4665},
-  year = 	 {2022},
-  volume = 	 {162},
-  series = 	 {Proceedings of Machine Learning Research},
-  month = 	 {17--23 Jul},
-  publisher =    {PMLR},
-  pdf = 	 {https://proceedings.mlr.press/v162/daniel22a/daniel22a.pdf},
-  url = 	 {https://proceedings.mlr.press/v162/daniel22a.html}}
+>	
+	@InProceedings{pmlr-v162-daniel22a,
+	  title = 	 {Unsupervised Image Representation Learning with Deep Latent Particles},
+	  author =       {Daniel, Tal and Tamar, Aviv},
+	  booktitle = 	 {Proceedings of the 39th International Conference on Machine Learning},
+	  pages = 	 {4644--4665},
+	  year = 	 {2022},
+	  volume = 	 {162},
+	  series = 	 {Proceedings of Machine Learning Research},
+	  month = 	 {17--23 Jul},
+	  publisher =    {PMLR}
 
 
 
