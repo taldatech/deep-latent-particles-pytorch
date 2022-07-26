@@ -16,7 +16,7 @@
 
 <h4 align="center">ICML 2022</h4>
 
-<h4 align="center"><a href="https://taldatech.github.io/deep-latent-particles-web/">Project Website</a> • <a href="">Video</a></h4>
+<h4 align="center"><a href="https://taldatech.github.io/deep-latent-particles-web/">Project Website</a> • <a href="https://youtu.be/6xywAtE7WPw">Video</a></h4>
 
 <h4 align="center">
     <a href="https://colab.research.google.com/github/taldatech/deep-latent-particles-pytorch"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
@@ -53,13 +53,19 @@
 Daniel, Tal, and Aviv Tamar. "Unsupervised Image Representation Learning with Deep Latent Particles." Proceedings of the 39th International Conference on Machine Learning (ICML) 2022.
 >
 
-    @InProceedings{daniel22dlp_icml,
-    author    = {Daniel, Tal and Tamar, Aviv},
-    title     = {Unsupervised Image Representation Learning with Deep Latent Particles},
-    booktitle = {Proceedings of the 39th International Conference on Machine Learning (ICML)},
-    month     = {July},
-    year      = {2022},
-    pages     = {}
+@InProceedings{pmlr-v162-daniel22a,
+  title = 	 {Unsupervised Image Representation Learning with Deep Latent Particles},
+  author =       {Daniel, Tal and Tamar, Aviv},
+  booktitle = 	 {Proceedings of the 39th International Conference on Machine Learning},
+  pages = 	 {4644--4665},
+  year = 	 {2022},
+  volume = 	 {162},
+  series = 	 {Proceedings of Machine Learning Research},
+  month = 	 {17--23 Jul},
+  publisher =    {PMLR},
+  pdf = 	 {https://proceedings.mlr.press/v162/daniel22a/daniel22a.pdf},
+  url = 	 {https://proceedings.mlr.press/v162/daniel22a.html}}
+
 
 
 <h4 align="center">Paper on ArXiv: <a href="https://arxiv.org/abs/2205.15821">2205.15821</a></h4>
