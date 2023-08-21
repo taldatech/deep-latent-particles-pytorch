@@ -111,8 +111,8 @@ Daniel, Tal, and Aviv Tamar. "Unsupervised Image Representation Learning with De
 | Dataset           | Filename                           | Link                                                                                |
 |-------------------|------------------------------------|--------------------------------------------------------------------------------------|
 | CelebA (128x128)  | `dlp_celeba_gauss_pointnetpp_feat.pth` | [MEGA.co.nz](https://mega.nz/file/ZAkiDSIQ#ndtlzAPwG42TEGZmuADAzR1Wo0AZx2k__qyWUfcOkQc)|
-| Traffic (128x128) | `dlp_traffic_gauss_pointnetpp.pth` | [MEGA.co.nz](https://mega.nz/file/VINjRZCL#rJ25UPXlYJUxWPaP7gDEbxjVZaayey5JB6x9P5Z__CU)|
-| CLEVRER (128x128) | `dlp_clevrer_gauss_pointnetpp.pth` | [MEGA.co.nz](https://mega.nz/file/9cN0HAYQ#K9AvKsWemA5hvk9WleleautIdQu2Euezf8UOI7aKUtE)|
+| Traffic (128x128) | `dlp_traffic_gauss_pointnetpp.pth` | [MEGA.co.nz](https://mega.nz/file/9cN0HAYQ#K9AvKsWemA5hvk9WleleautIdQu2Euezf8UOI7aKUtE)|
+| CLEVRER (128x128) | `dlp_clevrer_gauss_pointnetpp.pth` | [MEGA.co.nz](https://mega.nz/file/VINjRZCL#rJ25UPXlYJUxWPaP7gDEbxjVZaayey5JB6x9P5Z__CU)|
 
 ## Interactive Demo
 

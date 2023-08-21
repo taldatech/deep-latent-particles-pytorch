@@ -67,7 +67,7 @@ def plot_keypoints_on_image(k, image_tensor, radius=1, thickness=1, kp_range=(0,
     for co_ord, color in zip(k, cm):
         c = color.item(0), color.item(1), color.item(2)
         co_ord = co_ord.squeeze()
-        cv2.circle(img, (co_ord[1], co_ord[0]), radius, c, thickness)
+        cv2.circle(img, (int(co_ord[1]), int(co_ord[0])), radius, c, thickness)
         count += 1
 
     return img
@@ -266,8 +266,8 @@ def plot_bb_on_image_from_masks_nms(masks, image_tensor, scores, iou_thresh=0.5,
         hs = (coor[1] - thickness).clamp(0, height)
         wt = (coor[2] + thickness).clamp(0, width)
         ht = (coor[3] + thickness).clamp(0, height)
-        bb_s = (ws, hs)
-        bb_t = (wt, ht)
+        bb_s = (int(ws), int(hs))
+        bb_t = (int(wt), int(ht))
         cv2.rectangle(img, bb_s, bb_t, c, thickness, 1)
         score_text = f'{scores_nms[count]:.2f}'
         font = cv2.FONT_HERSHEY_SIMPLEX
@@ -323,8 +323,8 @@ def plot_bb_on_image_from_masks(masks, image_tensor, thickness=1):
             wt = (indices[-1][1] * (width / mask_w) + thickness).clamp(0, width).int()
             hs = (indices[0][0] * (height / mask_h) - thickness).clamp(0, height).int()
             ht = (indices[-1][0] * (height / mask_h) + thickness).clamp(0, height).int()
-            bb_s = (ws, hs)
-            bb_t = (wt, ht)
+            bb_s = (int(ws), int(hs))
+            bb_t = (int(wt), int(ht))
             cv2.rectangle(img, bb_s, bb_t, c, thickness, 1)
             count += 1
     return img
