@@ -627,7 +627,8 @@ class ObjectDecoderCNN(nn.Module):
                                 nn.Linear(256, fc_out_dim),
                                 nn.ReLU(True))
 
-        num_upsample = int(np.log(patch_size[0]) // np.log(2)) - 3
+        # num_upsample = int(np.log(patch_size[0]) // np.log(2)) - 3
+        num_upsample = int(np.log2(patch_size[0])) - 3  # thanks @MoritzLange
         # print(f'ObjDecCNN: fc to cnn num upsample: {num_upsample}')
         self.channels = [32]
         for i in range(num_upsample):
