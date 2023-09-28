@@ -2,6 +2,8 @@
 
 [ICML 2022] Official PyTorch implementation of the paper "Unsupervised Image Representation Learning with Deep Latent Particles"
 
+<h3 align="center">DLPv2 and DDLP (DLP for video generation) have been released: [DDLP: Unsupervised Object-Centric Video Prediction with Deep Dynamic Latent Particles](https://github.com/taldatech/ddlp)</h4>
+
 <h1 align="center">
   <br>
 	[ICML 2022] Unsupervised Image Representation Learning with Deep Latent Particles
